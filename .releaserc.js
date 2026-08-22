@@ -24,14 +24,14 @@ module.exports = {
       // artifact, and publish it to Ansible Galaxy.
       "@semantic-release/exec",
       {
-        // Fail the release BEFORE anything is tagged when the Galaxy key is
-        // absent — a failed publish after tagging strands a half-release.
-        verifyConditionsCmd:
-          '[ -n "$GALAXY_API_KEY" ] || { echo "GALAXY_API_KEY secret is not set"; exit 1; }',
         prepareCmd:
           "sed -i 's/^version: .*/version: ${nextRelease.version}/' galaxy.yml && ansible-galaxy collection build --force",
+        // Galaxy publish is optional: without the GALAXY_API_KEY secret the
+        // GitHub release (tag + tarball) still happens and only the Galaxy
+        // upload is skipped. A skipped version can be published later by
+        // hand: ansible-galaxy collection publish <tarball> --token <key>.
         publishCmd:
-          "ansible-galaxy collection publish mcowser_p-ejecto_releaseo-${nextRelease.version}.tar.gz --token $GALAXY_API_KEY",
+          'if [ -n "$GALAXY_API_KEY" ]; then ansible-galaxy collection publish mcowser_p-ejecto_releaseo-${nextRelease.version}.tar.gz --token "$GALAXY_API_KEY"; else echo "::warning::GALAXY_API_KEY not set — GitHub release only, Galaxy publish skipped"; fi',
       },
     ],
     [
