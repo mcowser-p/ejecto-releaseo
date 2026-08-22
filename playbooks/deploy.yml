@@ -6,6 +6,9 @@
 - name: Ejecto releaseo
   hosts: all
   serial: 1
+  # The role never escalates on its own; grant become at the play level for
+  # Linux targets (Windows connections authenticate as an admin instead).
+  become: "{{ ansible_os_family != 'Windows' }}"
   roles:
     - role: mcowser_p.ejecto_releaseo.ejecto_releaseo
       vars:

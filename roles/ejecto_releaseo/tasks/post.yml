@@ -3,7 +3,6 @@
   ansible.builtin.meta: flush_handlers
 
 - name: Run the post-deploy command (linux)
-  become: true
   when:
     - ejecto_releaseo_command | length > 0
     - ansible_os_family != 'Windows'
@@ -29,7 +28,6 @@
         seconds: "{{ ejecto_releaseo_health_check_delay }}"
 
     - name: Assert the service is running (linux)
-      become: true
       when: ansible_os_family != 'Windows'
       ansible.builtin.systemd_service:
         name: "{{ ejecto_releaseo_service }}"

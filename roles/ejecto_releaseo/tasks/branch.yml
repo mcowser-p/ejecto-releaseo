@@ -76,10 +76,9 @@
          else [{'path': '.', 'dest': ejecto_releaseo_dest}] }}
 
 - name: Copy tree to the target (linux)
-  become: true
   when: ansible_os_family != 'Windows'
   ansible.builtin.copy:
-    src: "{{ _ejecto_releaseo_stage.path }}/{{ item.path }}{{ '' if item.path.endswith('/') or item.path == '.' else '' }}"
+    src: "{{ _ejecto_releaseo_stage['path'] }}/{{ item['path'] }}"
     dest: "{{ item.dest | default(ejecto_releaseo_dest) }}"
     owner: "{{ ejecto_releaseo_owner }}"
     group: "{{ ejecto_releaseo_group }}"
@@ -91,7 +90,7 @@
 - name: Copy tree to the target (windows)
   when: ansible_os_family == 'Windows'
   ansible.windows.win_copy:
-    src: "{{ _ejecto_releaseo_stage.path }}/{{ item.path }}"
+    src: "{{ _ejecto_releaseo_stage['path'] }}/{{ item['path'] }}"
     dest: "{{ item.dest | default(ejecto_releaseo_dest) }}"
   loop: "{{ _ejecto_releaseo_ship }}"
   notify:

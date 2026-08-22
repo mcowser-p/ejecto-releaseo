@@ -1,6 +1,5 @@
 ---
 - name: "Download {{ _ejecto_item.asset_name }}"
-  become: true
   ansible.builtin.get_url:
     url: >-
       https://api.github.com/repos/{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name
@@ -11,7 +10,6 @@
     force: true
 
 - name: "Extract {{ _ejecto_item.asset_name }}"
-  become: true
   when: >-
     _ejecto_item.unarchive | default(
       _ejecto_item.asset_name.endswith(('.tar.gz', '.tgz', '.zip')))
@@ -27,7 +25,6 @@
   changed_when: _ejecto_releaseo_change.changed
 
 - name: "Install {{ _ejecto_item.asset_name }}"
-  become: true
   when: >-
     not (_ejecto_item.unarchive | default(
       _ejecto_item.asset_name.endswith(('.tar.gz', '.tgz', '.zip'))))
@@ -44,7 +41,6 @@
     - Restart service (linux)
 
 - name: "Clean up the download"
-  become: true
   ansible.builtin.file:
     path: "/tmp/{{ _ejecto_item.asset_name }}"
     state: absent

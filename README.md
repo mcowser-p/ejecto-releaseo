@@ -13,6 +13,7 @@ ansible-galaxy collection install mcowser_p.ejecto_releaseo
 
 ```yaml
 - hosts: app_servers
+  become: true                   # the role itself never escalates — do it here (Linux)
   serial: 1                      # rolling, one host at a time
   roles:
     - role: mcowser_p.ejecto_releaseo.ejecto_releaseo
