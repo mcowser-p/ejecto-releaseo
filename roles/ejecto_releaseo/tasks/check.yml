@@ -1,0 +1,38 @@
+---
+# The marker file records what was last deployed. When it matches the
+# resolved fingerprint, the whole fetch/install phase is skipped — which
+# makes reruns fast and the role honestly idempotent.
+
+- name: Compute the marker path
+  ansible.builtin.set_fact:
+    _ejecto_releaseo_marker: >-
+      {{ ejecto_releaseo_dest ~ ('\\' if ansible_os_family == 'Windows' else '/')
+         ~ '.ejecto_releaseo.version' }}
+
+- name: Stat the marker (linux)
+  ansible.builtin.stat:
+    path: "{{ _ejecto_releaseo_marker }}"
+  register: _ejecto_releaseo_marker_stat
+  when: ansible_os_family != 'Windows'
+
+- name: Stat the marker (windows)
+  ansible.windows.win_stat:
+    path: "{{ _ejecto_releaseo_marker }}"
+  register: _ejecto_releaseo_marker_stat_win
+  when: ansible_os_family == 'Windows'
+
+- name: Read the marker
+  ansible.builtin.slurp:
+    src: "{{ _ejecto_releaseo_marker }}"
+  register: _ejecto_releaseo_marker_content
+  when: >-
+    (ansible_os_family != 'Windows' and _ejecto_releaseo_marker_stat.stat.exists)
+    or (ansible_os_family == 'Windows' and _ejecto_releaseo_marker_stat_win.stat.exists)
+
+- name: Decide whether the target is up to date
+  ansible.builtin.set_fact:
+    _ejecto_releaseo_up_to_date: >-
+      {{ not ejecto_releaseo_force
+         and _ejecto_releaseo_marker_content.content is defined
+         and (_ejecto_releaseo_marker_content.content | b64decode | trim)
+             == _ejecto_releaseo_desired }}

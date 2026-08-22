@@ -1,0 +1,39 @@
+---
+- name: Resolve the branch head via the API
+  when: ejecto_releaseo_auth != 'deploy_key'
+  delegate_to: localhost
+  become: false
+  check_mode: false
+  ansible.builtin.uri:
+    url: >-
+      https://api.github.com/repos/{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name
+      }}/commits/{{ ejecto_releaseo_version if ejecto_releaseo_version != 'latest' else 'HEAD' }}
+    headers: "{{ _ejecto_releaseo_headers }}"
+    return_content: true
+  register: _ejecto_releaseo_head
+  retries: 3
+  delay: 5
+  until: _ejecto_releaseo_head.status == 200
+
+- name: Resolve the branch head via git ls-remote (deploy key)
+  when: ejecto_releaseo_auth == 'deploy_key'
+  delegate_to: localhost
+  become: false
+  check_mode: false
+  ansible.builtin.command:
+    cmd: >-
+      git ls-remote
+      git@github.com:{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name }}.git
+      {{ ejecto_releaseo_version if ejecto_releaseo_version != 'latest' else 'HEAD' }}
+  environment:
+    GIT_SSH_COMMAND: >-
+      ssh -i {{ ejecto_releaseo_deploy_key }} -o StrictHostKeyChecking=accept-new
+  register: _ejecto_releaseo_lsremote
+  changed_when: false
+
+- name: Compute the branch fingerprint
+  ansible.builtin.set_fact:
+    _ejecto_releaseo_desired: >-
+      branch:{{ _ejecto_releaseo_head.json.sha
+                if ejecto_releaseo_auth != 'deploy_key'
+                else (_ejecto_releaseo_lsremote.stdout.split() | first) }}

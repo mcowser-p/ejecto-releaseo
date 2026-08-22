@@ -50,16 +50,8 @@
       but the release only offers
       {{ _ejecto_releaseo_release.json.assets | map(attribute='name') | list }}
 
-- name: Download and install assets (linux)
-  when: ansible_os_family != 'Windows'
-  ansible.builtin.include_tasks: install_linux.yml
-  loop: "{{ _ejecto_releaseo_downloads }}"
-  loop_control:
-    loop_var: _ejecto_item
-
-- name: Download and install assets (windows)
-  when: ansible_os_family == 'Windows'
-  ansible.builtin.include_tasks: install_windows.yml
-  loop: "{{ _ejecto_releaseo_downloads }}"
-  loop_control:
-    loop_var: _ejecto_item
+- name: Compute the release fingerprint
+  ansible.builtin.set_fact:
+    _ejecto_releaseo_desired: >-
+      release:{{ _ejecto_releaseo_release.json.tag_name }}:{{
+        _ejecto_releaseo_downloads | map(attribute='asset_id') | join(',') }}

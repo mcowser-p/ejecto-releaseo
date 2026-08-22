@@ -50,6 +50,11 @@ ejecto_releaseo_app_private_key: ""       # path to the PEM on the controller
 ejecto_releaseo_deploy_key: ""            # path to the SSH private key on the
                                          # controller (source=branch only)
 
+# Redeploy even when the version marker says the target is current. The
+# marker (<dest>/.ejecto_releaseo.version) records the deployed release
+# tag + asset ids or branch commit, and makes reruns skip all downloads.
+ejecto_releaseo_force: false
+
 # --- After the files land -------------------------------------------------
 ejecto_releaseo_service: ""               # systemd unit (Linux) / service name
                                          # (Windows); restarted when files

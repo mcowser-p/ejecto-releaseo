@@ -16,13 +16,68 @@
 - name: Resolve authentication
   ansible.builtin.include_tasks: auth.yml
 
-- name: Deploy from a release
-  ansible.builtin.include_tasks: release.yml
+# Resolution computes _ejecto_releaseo_desired — a version fingerprint
+# (release tag + asset ids, or branch commit sha) — without touching the
+# target.
+- name: Resolve the release
+  ansible.builtin.include_tasks: resolve_release.yml
   when: ejecto_releaseo_source == 'release'
 
-- name: Deploy from a branch
-  ansible.builtin.include_tasks: branch.yml
+- name: Resolve the branch
+  ansible.builtin.include_tasks: resolve_branch.yml
   when: ejecto_releaseo_source == 'branch'
+
+- name: Check the deployed version marker
+  ansible.builtin.include_tasks: check.yml
+
+- name: Report an up-to-date target
+  ansible.builtin.debug:
+    msg: >-
+      {{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name }} already
+      at {{ _ejecto_releaseo_desired }} — nothing to deploy
+      (set ejecto_releaseo_force=true to redeploy).
+  when: _ejecto_releaseo_up_to_date
+
+- name: Deploy
+  when: not _ejecto_releaseo_up_to_date
+  block:
+    - name: Ensure the destination directory exists (linux)
+      ansible.builtin.file:
+        path: "{{ ejecto_releaseo_dest }}"
+        state: directory
+        owner: "{{ ejecto_releaseo_owner }}"
+        group: "{{ ejecto_releaseo_group }}"
+        mode: "0755"
+      when: ansible_os_family != 'Windows'
+
+    - name: Ensure the destination directory exists (windows)
+      ansible.windows.win_file:
+        path: "{{ ejecto_releaseo_dest }}"
+        state: directory
+      when: ansible_os_family == 'Windows'
+
+    - name: Fetch and install from the release
+      ansible.builtin.include_tasks: fetch_release.yml
+      when: ejecto_releaseo_source == 'release'
+
+    - name: Fetch and install from the branch
+      ansible.builtin.include_tasks: fetch_branch.yml
+      when: ejecto_releaseo_source == 'branch'
+
+    - name: Record the deployed version (linux)
+      ansible.builtin.copy:
+        content: "{{ _ejecto_releaseo_desired }}\n"
+        dest: "{{ _ejecto_releaseo_marker }}"
+        owner: "{{ ejecto_releaseo_owner }}"
+        group: "{{ ejecto_releaseo_group }}"
+        mode: "0644"
+      when: ansible_os_family != 'Windows'
+
+    - name: Record the deployed version (windows)
+      ansible.windows.win_copy:
+        content: "{{ _ejecto_releaseo_desired }}\r\n"
+        dest: "{{ _ejecto_releaseo_marker }}"
+      when: ansible_os_family == 'Windows'
 
 - name: Post-deploy service handling
   ansible.builtin.include_tasks: post.yml

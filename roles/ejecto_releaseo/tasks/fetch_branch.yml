@@ -9,7 +9,6 @@
 # Registered ONCE, unconditionally — a register on a skipped task would
 # overwrite this with {skipped: true} and lose the path.
 - name: Create a staging directory on the controller
-  tags: [molecule-idempotence-notest]
   delegate_to: localhost
   become: false
   check_mode: false
@@ -22,7 +21,6 @@
   when: ejecto_releaseo_auth != 'deploy_key'
   block:
     - name: Download the repository archive
-      tags: [molecule-idempotence-notest]
       delegate_to: localhost
       become: false
       check_mode: false
@@ -35,7 +33,6 @@
         mode: "0600"
 
     - name: Unpack the archive on the controller
-      tags: [molecule-idempotence-notest]
       delegate_to: localhost
       become: false
       check_mode: false
@@ -53,7 +50,6 @@
         fail_msg: deploy_key auth needs ejecto_releaseo_deploy_key (path to the private key)
 
     - name: Shallow-clone over SSH with the deploy key
-      tags: [molecule-idempotence-notest]
       delegate_to: localhost
       become: false
       check_mode: false
@@ -96,7 +92,6 @@
     - Run deploy command (windows)
 
 - name: Remove the controller staging directory
-  tags: [molecule-idempotence-notest]
   delegate_to: localhost
   become: false
   check_mode: false

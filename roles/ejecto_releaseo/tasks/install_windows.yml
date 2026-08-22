@@ -1,6 +1,5 @@
 ---
 - name: "Download {{ _ejecto_item.asset_name }}"
-  tags: [molecule-idempotence-notest]
   ansible.windows.win_get_url:
     url: >-
       https://api.github.com/repos/{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name
@@ -33,7 +32,6 @@
     - Run deploy command (windows)
 
 - name: "Clean up the download"
-  tags: [molecule-idempotence-notest]
   ansible.windows.win_file:
     path: "{{ ansible_env.TEMP }}\\{{ _ejecto_item.asset_name }}"
     state: absent

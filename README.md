@@ -81,6 +81,15 @@ In GitHub Actions this means zero configuration for same-org repos:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+## Idempotence: the version marker
+
+The role records what it deployed in `<dest>/.ejecto_releaseo.version`
+(release tag + asset ids, or branch commit sha). On the next run it
+resolves the desired version first and **skips every download and install
+when the target is already current** — reruns are cheap, and a `latest`
+deploy only acts when a new release actually exists. Override with
+`ejecto_releaseo_force: true`.
+
 ## After the files land
 
 - `ejecto_releaseo_service` — restarted (handler) only when something changed,
