@@ -24,7 +24,9 @@ ejecto_releaseo_version: latest
 ejecto_releaseo_assets: []
 
 # branch mode — repo paths to deploy (empty list = whole tree). Each item:
-#   path: path inside the repository
+#   path: path inside the repository — a trailing slash copies the
+#         directory's CONTENTS into dest; no slash copies the directory
+#         itself (plain copy semantics)
 #   dest: directory on the target (defaults to ejecto_releaseo_dest)
 ejecto_releaseo_paths: []
 
