@@ -9,6 +9,7 @@
 # Registered ONCE, unconditionally — a register on a skipped task would
 # overwrite this with {skipped: true} and lose the path.
 - name: Create a staging directory on the controller
+  tags: [molecule-idempotence-notest]
   delegate_to: localhost
   become: false
   check_mode: false
@@ -21,6 +22,7 @@
   when: ejecto_releaseo_auth != 'deploy_key'
   block:
     - name: Download the repository archive
+      tags: [molecule-idempotence-notest]
       delegate_to: localhost
       become: false
       check_mode: false
@@ -33,6 +35,7 @@
         mode: "0600"
 
     - name: Unpack the archive on the controller
+      tags: [molecule-idempotence-notest]
       delegate_to: localhost
       become: false
       check_mode: false
@@ -50,6 +53,7 @@
         fail_msg: deploy_key auth needs ejecto_releaseo_deploy_key (path to the private key)
 
     - name: Shallow-clone over SSH with the deploy key
+      tags: [molecule-idempotence-notest]
       delegate_to: localhost
       become: false
       check_mode: false
@@ -79,6 +83,7 @@
   loop: "{{ _ejecto_releaseo_ship }}"
   notify:
     - Restart service (linux)
+    - Run deploy command (linux)
 
 - name: Copy tree to the target (windows)
   when: ansible_os_family == 'Windows'
@@ -88,6 +93,7 @@
   loop: "{{ _ejecto_releaseo_ship }}"
   notify:
     - Restart service (windows)
+    - Run deploy command (windows)
 
 - name: Remove the controller staging directory
   delegate_to: localhost

@@ -2,22 +2,6 @@
 - name: Restart now if files changed
   ansible.builtin.meta: flush_handlers
 
-- name: Run the post-deploy command (linux)
-  when:
-    - ejecto_releaseo_command | length > 0
-    - ansible_os_family != 'Windows'
-  ansible.builtin.command:
-    cmd: "{{ ejecto_releaseo_command }}"
-  changed_when: true
-
-- name: Run the post-deploy command (windows)
-  when:
-    - ejecto_releaseo_command | length > 0
-    - ansible_os_family == 'Windows'
-  ansible.windows.win_command:
-    cmd: "{{ ejecto_releaseo_command }}"
-  changed_when: true
-
 - name: Health-check the service
   when:
     - ejecto_releaseo_service | length > 0

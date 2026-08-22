@@ -3,10 +3,30 @@
   ansible.builtin.systemd_service:
     name: "{{ ejecto_releaseo_service }}"
     state: restarted
-  when: ansible_os_family != 'Windows'
+  when:
+    - ansible_os_family != 'Windows'
+    - ejecto_releaseo_service | length > 0
 
 - name: Restart service (windows)
   ansible.windows.win_service:
     name: "{{ ejecto_releaseo_service }}"
     state: restarted
-  when: ansible_os_family == 'Windows'
+  when:
+    - ansible_os_family == 'Windows'
+    - ejecto_releaseo_service | length > 0
+
+- name: Run deploy command (linux)
+  ansible.builtin.command:
+    cmd: "{{ ejecto_releaseo_command }}"
+  changed_when: true
+  when:
+    - ansible_os_family != 'Windows'
+    - ejecto_releaseo_command | length > 0
+
+- name: Run deploy command (windows)
+  ansible.windows.win_command:
+    cmd: "{{ ejecto_releaseo_command }}"
+  changed_when: true
+  when:
+    - ansible_os_family == 'Windows'
+    - ejecto_releaseo_command | length > 0

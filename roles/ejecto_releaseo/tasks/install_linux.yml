@@ -1,5 +1,6 @@
 ---
 - name: "Download {{ _ejecto_item.asset_name }}"
+  tags: [molecule-idempotence-notest]
   ansible.builtin.get_url:
     url: >-
       https://api.github.com/repos/{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name
@@ -21,6 +22,7 @@
     group: "{{ ejecto_releaseo_group }}"
   notify:
     - Restart service (linux)
+    - Run deploy command (linux)
   register: _ejecto_releaseo_change
   changed_when: _ejecto_releaseo_change.changed
 
@@ -39,8 +41,10 @@
     mode: "{{ ejecto_releaseo_mode }}"
   notify:
     - Restart service (linux)
+    - Run deploy command (linux)
 
 - name: "Clean up the download"
+  tags: [molecule-idempotence-notest]
   ansible.builtin.file:
     path: "/tmp/{{ _ejecto_item.asset_name }}"
     state: absent

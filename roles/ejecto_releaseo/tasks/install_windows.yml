@@ -1,5 +1,6 @@
 ---
 - name: "Download {{ _ejecto_item.asset_name }}"
+  tags: [molecule-idempotence-notest]
   ansible.windows.win_get_url:
     url: >-
       https://api.github.com/repos/{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name
@@ -16,6 +17,7 @@
     dest: "{{ _ejecto_item.dest | default(ejecto_releaseo_dest) }}"
   notify:
     - Restart service (windows)
+    - Run deploy command (windows)
 
 - name: "Install {{ _ejecto_item.asset_name }}"
   when: >-
@@ -28,8 +30,10 @@
         _ejecto_item.rename | default(_ejecto_item.asset_name) }}
   notify:
     - Restart service (windows)
+    - Run deploy command (windows)
 
 - name: "Clean up the download"
+  tags: [molecule-idempotence-notest]
   ansible.windows.win_file:
     path: "{{ ansible_env.TEMP }}\\{{ _ejecto_item.asset_name }}"
     state: absent
