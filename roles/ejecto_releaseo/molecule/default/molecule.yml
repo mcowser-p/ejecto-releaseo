@@ -6,7 +6,8 @@ platforms:
     image: almalinux:9
     pre_build_image: true
   - name: ubuntu2404
-    image: ubuntu:24.04
+    # the stock ubuntu:24.04 image has no python3 — use the ansible-ready one
+    image: geerlingguy/docker-ubuntu2404-ansible:latest
     pre_build_image: true
 
 role_name_check: 1
