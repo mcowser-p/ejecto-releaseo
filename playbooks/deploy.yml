@@ -1,0 +1,19 @@
+---
+# Rolling deploy: one host at a time, stop on first failure.
+#   ansible-playbook -i inventory mcowser_p.ejecto_releaseo.ejecto_releaseo \
+#     -e repo_owner=mcowser-p -e repo_name=my-app \
+#     -e version=latest -e dest=/opt/my-app -e service=my-app
+- name: Ejecto releaseo
+  hosts: all
+  serial: 1
+  roles:
+    - role: mcowser_p.ejecto_releaseo.ejecto_releaseo
+      vars:
+        ejecto_releaseo_repo_owner: "{{ repo_owner }}"
+        ejecto_releaseo_repo_name: "{{ repo_name }}"
+        ejecto_releaseo_version: "{{ version | default('latest') }}"
+        ejecto_releaseo_source: "{{ source | default('release') }}"
+        ejecto_releaseo_dest: "{{ dest }}"
+        ejecto_releaseo_service: "{{ service | default('') }}"
+        ejecto_releaseo_assets: "{{ assets | default([]) }}"
+        ejecto_releaseo_paths: "{{ paths | default([]) }}"

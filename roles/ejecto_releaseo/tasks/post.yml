@@ -1,0 +1,47 @@
+---
+- name: Restart now if files changed
+  ansible.builtin.meta: flush_handlers
+
+- name: Run the post-deploy command (linux)
+  become: true
+  when:
+    - ejecto_releaseo_command | length > 0
+    - ansible_os_family != 'Windows'
+  ansible.builtin.command:
+    cmd: "{{ ejecto_releaseo_command }}"
+  changed_when: true
+
+- name: Run the post-deploy command (windows)
+  when:
+    - ejecto_releaseo_command | length > 0
+    - ansible_os_family == 'Windows'
+  ansible.windows.win_command:
+    cmd: "{{ ejecto_releaseo_command }}"
+  changed_when: true
+
+- name: Health-check the service
+  when:
+    - ejecto_releaseo_service | length > 0
+    - ejecto_releaseo_health_check
+  block:
+    - name: Give the service time to settle
+      ansible.builtin.pause:
+        seconds: "{{ ejecto_releaseo_health_check_delay }}"
+
+    - name: Assert the service is running (linux)
+      become: true
+      when: ansible_os_family != 'Windows'
+      ansible.builtin.systemd_service:
+        name: "{{ ejecto_releaseo_service }}"
+        state: started
+      register: _ejecto_releaseo_health
+      failed_when: _ejecto_releaseo_health.status['ActiveState'] != 'active'
+
+    - name: Assert the service is running (windows)
+      when: ansible_os_family == 'Windows'
+      ansible.windows.win_service_info:
+        name: "{{ ejecto_releaseo_service }}"
+      register: _ejecto_releaseo_health_win
+      failed_when: >-
+        _ejecto_releaseo_health_win.services | length == 0 or
+        _ejecto_releaseo_health_win.services[0].state != 'started'

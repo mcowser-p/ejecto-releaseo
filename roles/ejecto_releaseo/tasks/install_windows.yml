@@ -1,0 +1,35 @@
+---
+- name: "Download {{ _ejecto_item.asset_name }}"
+  ansible.windows.win_get_url:
+    url: >-
+      https://api.github.com/repos/{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name
+      }}/releases/assets/{{ _ejecto_item.asset_id }}
+    headers: "{{ _ejecto_releaseo_headers | combine({'Accept': 'application/octet-stream'}) }}"
+    dest: "{{ ansible_env.TEMP }}\\{{ _ejecto_item.asset_name }}"
+    force: true
+
+- name: "Extract {{ _ejecto_item.asset_name }}"
+  when: >-
+    _ejecto_item.unarchive | default(_ejecto_item.asset_name.endswith('.zip'))
+  community.windows.win_unzip:
+    src: "{{ ansible_env.TEMP }}\\{{ _ejecto_item.asset_name }}"
+    dest: "{{ _ejecto_item.dest | default(ejecto_releaseo_dest) }}"
+  notify:
+    - Restart service (windows)
+
+- name: "Install {{ _ejecto_item.asset_name }}"
+  when: >-
+    not (_ejecto_item.unarchive | default(_ejecto_item.asset_name.endswith('.zip')))
+  ansible.windows.win_copy:
+    remote_src: true
+    src: "{{ ansible_env.TEMP }}\\{{ _ejecto_item.asset_name }}"
+    dest: >-
+      {{ _ejecto_item.dest | default(ejecto_releaseo_dest) }}\{{
+        _ejecto_item.rename | default(_ejecto_item.asset_name) }}
+  notify:
+    - Restart service (windows)
+
+- name: "Clean up the download"
+  ansible.windows.win_file:
+    path: "{{ ansible_env.TEMP }}\\{{ _ejecto_item.asset_name }}"
+    state: absent

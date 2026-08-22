@@ -1,0 +1,45 @@
+---
+# Ansible Galaxy collection manifest for mcowser_p.ejecto_releaseo.
+#
+# `version` is a placeholder — semantic-release stamps the released version
+# here at release time (see .releaserc.js) before building the collection
+# artifact. Do not bump it by hand.
+namespace: mcowser_p
+name: ejecto_releaseo
+version: 0.0.0
+readme: README.md
+authors:
+  - mcowser-p
+description: >-
+  Ejecto! Releaseo! — deploy files from a GitHub branch or release onto
+  Linux and Windows hosts, then restart a service or run a command.
+  Authenticates with a deploy key, PAT, GitHub App, or the ambient
+  GITHUB_TOKEN when run from a workflow.
+license:
+  - Apache-2.0
+tags:
+  - deployment
+  - github
+  - release
+  - windows
+  - linux
+  - infrastructure
+dependencies:
+  community.general: '>=8.0.0'
+  ansible.windows: '>=2.0.0'
+  community.windows: '>=2.0.0'
+repository: https://github.com/mcowser-p/ejecto-releaseo
+homepage: https://github.com/mcowser-p/ejecto-releaseo
+issues: https://github.com/mcowser-p/ejecto-releaseo/issues
+build_ignore:
+  - .github
+  - .git
+  - .gitignore
+  - .releaserc.js
+  - .ansible-lint
+  - .yamllint
+  - package.json
+  - package-lock.json
+  - node_modules
+  - requirements.txt
+  - '*.tar.gz'

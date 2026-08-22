@@ -1,0 +1,50 @@
+---
+- name: "Download {{ _ejecto_item.asset_name }}"
+  become: true
+  ansible.builtin.get_url:
+    url: >-
+      https://api.github.com/repos/{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name
+      }}/releases/assets/{{ _ejecto_item.asset_id }}
+    headers: "{{ _ejecto_releaseo_headers | combine({'Accept': 'application/octet-stream'}) }}"
+    dest: "/tmp/{{ _ejecto_item.asset_name }}"
+    mode: "0600"
+    force: true
+
+- name: "Extract {{ _ejecto_item.asset_name }}"
+  become: true
+  when: >-
+    _ejecto_item.unarchive | default(
+      _ejecto_item.asset_name.endswith(('.tar.gz', '.tgz', '.zip')))
+  ansible.builtin.unarchive:
+    remote_src: true
+    src: "/tmp/{{ _ejecto_item.asset_name }}"
+    dest: "{{ _ejecto_item.dest | default(ejecto_releaseo_dest) }}"
+    owner: "{{ ejecto_releaseo_owner }}"
+    group: "{{ ejecto_releaseo_group }}"
+  notify:
+    - Restart service (linux)
+  register: _ejecto_releaseo_change
+  changed_when: _ejecto_releaseo_change.changed
+
+- name: "Install {{ _ejecto_item.asset_name }}"
+  become: true
+  when: >-
+    not (_ejecto_item.unarchive | default(
+      _ejecto_item.asset_name.endswith(('.tar.gz', '.tgz', '.zip'))))
+  ansible.builtin.copy:
+    remote_src: true
+    src: "/tmp/{{ _ejecto_item.asset_name }}"
+    dest: >-
+      {{ _ejecto_item.dest | default(ejecto_releaseo_dest) }}/{{
+        _ejecto_item.rename | default(_ejecto_item.asset_name) }}
+    owner: "{{ ejecto_releaseo_owner }}"
+    group: "{{ ejecto_releaseo_group }}"
+    mode: "{{ ejecto_releaseo_mode }}"
+  notify:
+    - Restart service (linux)
+
+- name: "Clean up the download"
+  become: true
+  ansible.builtin.file:
+    path: "/tmp/{{ _ejecto_item.asset_name }}"
+    state: absent

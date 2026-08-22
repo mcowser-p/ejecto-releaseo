@@ -1,0 +1,106 @@
+---
+# Branch mode: land the repository tree at a ref on the target.
+#
+# With token/app/anonymous auth the tree comes from the tarball/zipball API.
+# With a deploy key the repo is cloned on the CONTROLLER over SSH (deploy
+# keys speak git, not the REST API) and the selected paths are pushed to the
+# target with copy/win_copy — which works for both OS families.
+
+- name: Deploy via the archive API
+  when: ejecto_releaseo_auth != 'deploy_key'
+  block:
+    - name: Create a staging directory on the controller
+      delegate_to: localhost
+      become: false
+      check_mode: false
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: ejecto-releaseo-
+      register: _ejecto_releaseo_stage
+
+    - name: Download the repository archive
+      delegate_to: localhost
+      become: false
+      check_mode: false
+      ansible.builtin.get_url:
+        url: >-
+          https://api.github.com/repos/{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name
+          }}/tarball/{{ ejecto_releaseo_version if ejecto_releaseo_version != 'latest' else 'HEAD' }}
+        headers: "{{ _ejecto_releaseo_headers }}"
+        dest: "{{ _ejecto_releaseo_stage.path }}/repo.tar.gz"
+        mode: "0600"
+
+    - name: Unpack the archive on the controller
+      delegate_to: localhost
+      become: false
+      check_mode: false
+      ansible.builtin.unarchive:
+        src: "{{ _ejecto_releaseo_stage.path }}/repo.tar.gz"
+        dest: "{{ _ejecto_releaseo_stage.path }}"
+        extra_opts: ["--strip-components=1"]
+
+- name: Deploy via a deploy key
+  when: ejecto_releaseo_auth == 'deploy_key'
+  block:
+    - name: Require the key
+      ansible.builtin.assert:
+        that: ejecto_releaseo_deploy_key | length > 0
+        fail_msg: deploy_key auth needs ejecto_releaseo_deploy_key (path to the private key)
+
+    - name: Create a staging directory on the controller
+      delegate_to: localhost
+      become: false
+      check_mode: false
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: ejecto-releaseo-
+      register: _ejecto_releaseo_stage
+
+    - name: Shallow-clone over SSH with the deploy key
+      delegate_to: localhost
+      become: false
+      check_mode: false
+      ansible.builtin.git:
+        repo: "git@github.com:{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name }}.git"
+        dest: "{{ _ejecto_releaseo_stage.path }}"
+        version: "{{ ejecto_releaseo_version if ejecto_releaseo_version != 'latest' else 'HEAD' }}"
+        depth: 1
+        key_file: "{{ ejecto_releaseo_deploy_key }}"
+        accept_newhostkey: true
+
+- name: Select the paths to ship
+  ansible.builtin.set_fact:
+    _ejecto_releaseo_ship: >-
+      {{ ejecto_releaseo_paths
+         if ejecto_releaseo_paths | length > 0
+         else [{'path': '.', 'dest': ejecto_releaseo_dest}] }}
+
+- name: Copy tree to the target (linux)
+  become: true
+  when: ansible_os_family != 'Windows'
+  ansible.builtin.copy:
+    src: "{{ _ejecto_releaseo_stage.path }}/{{ item.path }}{{ '' if item.path.endswith('/') or item.path == '.' else '' }}"
+    dest: "{{ item.dest | default(ejecto_releaseo_dest) }}"
+    owner: "{{ ejecto_releaseo_owner }}"
+    group: "{{ ejecto_releaseo_group }}"
+    mode: "preserve"
+  loop: "{{ _ejecto_releaseo_ship }}"
+  notify:
+    - Restart service (linux)
+
+- name: Copy tree to the target (windows)
+  when: ansible_os_family == 'Windows'
+  ansible.windows.win_copy:
+    src: "{{ _ejecto_releaseo_stage.path }}/{{ item.path }}"
+    dest: "{{ item.dest | default(ejecto_releaseo_dest) }}"
+  loop: "{{ _ejecto_releaseo_ship }}"
+  notify:
+    - Restart service (windows)
+
+- name: Remove the controller staging directory
+  delegate_to: localhost
+  become: false
+  check_mode: false
+  ansible.builtin.file:
+    path: "{{ _ejecto_releaseo_stage.path }}"
+    state: absent

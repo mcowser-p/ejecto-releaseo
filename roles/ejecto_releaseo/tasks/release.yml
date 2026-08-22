@@ -1,0 +1,62 @@
+---
+# Resolve the release (tag or latest) on the controller, then download each
+# requested asset on the target via the asset API endpoint — that URL form
+# works identically for public and private repos, with or without a token.
+
+- name: Look up the release
+  delegate_to: localhost
+  become: false
+  check_mode: false
+  ansible.builtin.uri:
+    url: >-
+      https://api.github.com/repos/{{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name
+      }}/releases/{{ 'latest' if ejecto_releaseo_version == 'latest' else 'tags/' + ejecto_releaseo_version }}
+    headers: "{{ _ejecto_releaseo_headers }}"
+    return_content: true
+  register: _ejecto_releaseo_release
+  retries: 3
+  delay: 5
+  until: _ejecto_releaseo_release.status == 200
+
+- name: Announce the resolved release
+  ansible.builtin.debug:
+    msg: >-
+      Deploying {{ ejecto_releaseo_repo_owner }}/{{ ejecto_releaseo_repo_name }}
+      {{ _ejecto_releaseo_release.json.tag_name }}
+      ({{ _ejecto_releaseo_release.json.assets | length }} assets available)
+
+- name: Match requested assets against the release
+  ansible.builtin.set_fact:
+    _ejecto_releaseo_downloads: >-
+      {%- set out = [] -%}
+      {%- for want in ejecto_releaseo_assets -%}
+        {%- set hit = (_ejecto_releaseo_release.json.assets
+                       | selectattr('name', 'match', want.name | replace('*', '.*') ~ '$')
+                       | list | first) -%}
+        {%- if hit -%}
+          {{- out.append(want | combine({'asset_id': hit.id, 'asset_name': hit.name})) or '' -}}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: Fail when a requested asset is missing from the release
+  ansible.builtin.assert:
+    that: _ejecto_releaseo_downloads | length == ejecto_releaseo_assets | length
+    fail_msg: >-
+      Requested assets {{ ejecto_releaseo_assets | map(attribute='name') | list }}
+      but the release only offers
+      {{ _ejecto_releaseo_release.json.assets | map(attribute='name') | list }}
+
+- name: Download and install assets (linux)
+  when: ansible_os_family != 'Windows'
+  ansible.builtin.include_tasks: install_linux.yml
+  loop: "{{ _ejecto_releaseo_downloads }}"
+  loop_control:
+    loop_var: _ejecto_item
+
+- name: Download and install assets (windows)
+  when: ansible_os_family == 'Windows'
+  ansible.builtin.include_tasks: install_windows.yml
+  loop: "{{ _ejecto_releaseo_downloads }}"
+  loop_control:
+    loop_var: _ejecto_item

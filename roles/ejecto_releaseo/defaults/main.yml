@@ -1,0 +1,61 @@
+---
+# defaults for mcowser_p.ejecto_releaseo.deploy
+# All variables carry the ejecto_releaseo_ prefix (Galaxy var-naming standard).
+
+# --- What to deploy -------------------------------------------------------
+ejecto_releaseo_repo_owner: ""            # required — GitHub org/user
+ejecto_releaseo_repo_name: ""             # required — repository name
+
+# Source of the files:
+#   release — assets attached to a GitHub release
+#   branch  — the repository tree at a branch (or any git ref)
+ejecto_releaseo_source: release
+
+# release mode: a release tag, or "latest" to resolve the newest release.
+# branch mode: the branch (or ref) to deploy.
+ejecto_releaseo_version: latest
+
+# release mode — which assets to install. Each item:
+#   name:      exact asset filename OR a glob pattern (first match wins)
+#   dest:      directory on the target (defaults to ejecto_releaseo_dest)
+#   rename:    optional new filename at the destination
+#   unarchive: true/false — extract instead of copy (auto-detected for
+#              .tar.gz/.tgz/.zip when omitted)
+ejecto_releaseo_assets: []
+
+# branch mode — repo paths to deploy (empty list = whole tree). Each item:
+#   path: path inside the repository
+#   dest: directory on the target (defaults to ejecto_releaseo_dest)
+ejecto_releaseo_paths: []
+
+# --- Where to put it ------------------------------------------------------
+ejecto_releaseo_dest: ""                  # required — target directory
+ejecto_releaseo_owner: root               # Linux only
+ejecto_releaseo_group: root               # Linux only
+ejecto_releaseo_mode: "0755"              # Linux only
+
+# --- Authentication -------------------------------------------------------
+# auto — first of: ejecto_releaseo_token, GitHub App creds, the runner's
+#        GITHUB_TOKEN environment variable, anonymous.
+# Explicit values: none | token | app | deploy_key
+#   deploy_key works with source=branch only (git protocol, not the REST API).
+ejecto_releaseo_auth: auto
+
+ejecto_releaseo_token: ""                 # PAT (or pass GITHUB_TOKEN via env)
+
+ejecto_releaseo_app_id: ""                # GitHub App auth (all three required)
+ejecto_releaseo_app_installation_id: ""
+ejecto_releaseo_app_private_key: ""       # path to the PEM on the controller
+
+ejecto_releaseo_deploy_key: ""            # path to the SSH private key on the
+                                         # controller (source=branch only)
+
+# --- After the files land -------------------------------------------------
+ejecto_releaseo_service: ""               # systemd unit (Linux) / service name
+                                         # (Windows); restarted when files
+                                         # changed. Empty = no service.
+ejecto_releaseo_command: ""               # command to run when files changed
+                                         # (after the restart). Empty = none.
+ejecto_releaseo_health_check: true        # verify the service is running after
+                                         # a restart
+ejecto_releaseo_health_check_delay: 10    # seconds to wait before checking

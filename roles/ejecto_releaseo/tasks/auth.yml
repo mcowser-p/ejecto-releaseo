@@ -1,0 +1,51 @@
+---
+# Resolve the effective token once, on the controller. Order for auto:
+# explicit token -> GitHub App installation token -> the workflow runner's
+# GITHUB_TOKEN environment variable -> anonymous.
+
+- name: Mint a GitHub App installation token
+  when: >-
+    ejecto_releaseo_auth == 'app' or
+    (ejecto_releaseo_auth == 'auto' and ejecto_releaseo_token | length == 0
+     and ejecto_releaseo_app_id | string | length > 0)
+  delegate_to: localhost
+  become: false
+  block:
+    - name: Require the full App credential set
+      ansible.builtin.assert:
+        that:
+          - ejecto_releaseo_app_id | string | length > 0
+          - ejecto_releaseo_app_installation_id | string | length > 0
+          - ejecto_releaseo_app_private_key | length > 0
+        fail_msg: app auth needs app_id, app_installation_id and app_private_key
+
+    - name: Mint the installation token
+      ansible.builtin.set_fact:
+        _ejecto_releaseo_token: >-
+          {{ lookup('community.general.github_app_access_token',
+                    key_path=ejecto_releaseo_app_private_key,
+                    app_id=ejecto_releaseo_app_id | string,
+                    installation_id=ejecto_releaseo_app_installation_id | string) }}
+      no_log: true
+
+- name: Use the explicit or ambient token
+  when: _ejecto_releaseo_token is not defined
+  ansible.builtin.set_fact:
+    _ejecto_releaseo_token: >-
+      {{ ejecto_releaseo_token
+         if ejecto_releaseo_token | length > 0
+         else (lookup('ansible.builtin.env', 'GITHUB_TOKEN') or '') }}
+  no_log: true
+
+- name: Never send a token when auth is none
+  when: ejecto_releaseo_auth == 'none'
+  ansible.builtin.set_fact:
+    _ejecto_releaseo_token: ""
+
+- name: Build API headers
+  ansible.builtin.set_fact:
+    _ejecto_releaseo_headers: >-
+      {{ {'Accept': 'application/vnd.github+json'}
+         | combine({'Authorization': 'Bearer ' + _ejecto_releaseo_token}
+                   if _ejecto_releaseo_token | length > 0 else {}) }}
+  no_log: true
