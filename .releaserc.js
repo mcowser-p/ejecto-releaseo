@@ -24,6 +24,10 @@ module.exports = {
       // artifact, and publish it to Ansible Galaxy.
       "@semantic-release/exec",
       {
+        // Fail the release BEFORE anything is tagged when the Galaxy key is
+        // absent — a failed publish after tagging strands a half-release.
+        verifyConditionsCmd:
+          '[ -n "$GALAXY_API_KEY" ] || { echo "GALAXY_API_KEY secret is not set"; exit 1; }',
         prepareCmd:
           "sed -i 's/^version: .*/version: ${nextRelease.version}/' galaxy.yml && ansible-galaxy collection build --force",
         publishCmd:
