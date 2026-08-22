@@ -1,0 +1,62 @@
+---
+# Resolve the release (tag or latest) on the controller, then download each
+# requested asset on the target via the asset API endpoint — that URL form
+# works identically for public and private repos, with or without a token.
+
+- name: Look up the release
+  delegate_to: localhost
+  become: false
+  check_mode: false
+  ansible.builtin.uri:
+    url: >-
+      https://api.github.com/repos/{{ presto_deployo_repo_owner }}/{{ presto_deployo_repo_name
+      }}/releases/{{ 'latest' if presto_deployo_version == 'latest' else 'tags/' + presto_deployo_version }}
+    headers: "{{ _presto_deployo_headers }}"
+    return_content: true
+  register: _presto_deployo_release
+  retries: 3
+  delay: 5
+  until: _presto_deployo_release.status == 200
+
+- name: Announce the resolved release
+  ansible.builtin.debug:
+    msg: >-
+      Deploying {{ presto_deployo_repo_owner }}/{{ presto_deployo_repo_name }}
+      {{ _presto_deployo_release.json.tag_name }}
+      ({{ _presto_deployo_release.json.assets | length }} assets available)
+
+- name: Match requested assets against the release
+  ansible.builtin.set_fact:
+    _presto_deployo_downloads: >-
+      {%- set out = [] -%}
+      {%- for want in presto_deployo_assets -%}
+        {%- set hit = (_presto_deployo_release.json.assets
+                       | selectattr('name', 'match', want.name | replace('*', '.*') ~ '$')
+                       | list | first) -%}
+        {%- if hit -%}
+          {{- out.append(want | combine({'asset_id': hit.id, 'asset_name': hit.name})) or '' -}}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: Fail when a requested asset is missing from the release
+  ansible.builtin.assert:
+    that: _presto_deployo_downloads | length == presto_deployo_assets | length
+    fail_msg: >-
+      Requested assets {{ presto_deployo_assets | map(attribute='name') | list }}
+      but the release only offers
+      {{ _presto_deployo_release.json.assets | map(attribute='name') | list }}
+
+- name: Download and install assets (linux)
+  when: ansible_os_family != 'Windows'
+  ansible.builtin.include_tasks: install_linux.yml
+  loop: "{{ _presto_deployo_downloads }}"
+  loop_control:
+    loop_var: _presto_item
+
+- name: Download and install assets (windows)
+  when: ansible_os_family == 'Windows'
+  ansible.builtin.include_tasks: install_windows.yml
+  loop: "{{ _presto_deployo_downloads }}"
+  loop_control:
+    loop_var: _presto_item

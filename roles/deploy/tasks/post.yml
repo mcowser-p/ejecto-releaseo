@@ -1,0 +1,47 @@
+---
+- name: Restart now if files changed
+  ansible.builtin.meta: flush_handlers
+
+- name: Run the post-deploy command (linux)
+  become: true
+  when:
+    - presto_deployo_command | length > 0
+    - ansible_os_family != 'Windows'
+  ansible.builtin.command:
+    cmd: "{{ presto_deployo_command }}"
+  changed_when: true
+
+- name: Run the post-deploy command (windows)
+  when:
+    - presto_deployo_command | length > 0
+    - ansible_os_family == 'Windows'
+  ansible.windows.win_command:
+    cmd: "{{ presto_deployo_command }}"
+  changed_when: true
+
+- name: Health-check the service
+  when:
+    - presto_deployo_service | length > 0
+    - presto_deployo_health_check
+  block:
+    - name: Give the service time to settle
+      ansible.builtin.pause:
+        seconds: "{{ presto_deployo_health_check_delay }}"
+
+    - name: Assert the service is running (linux)
+      become: true
+      when: ansible_os_family != 'Windows'
+      ansible.builtin.systemd_service:
+        name: "{{ presto_deployo_service }}"
+        state: started
+      register: _presto_deployo_health
+      failed_when: _presto_deployo_health.status['ActiveState'] != 'active'
+
+    - name: Assert the service is running (windows)
+      when: ansible_os_family == 'Windows'
+      ansible.windows.win_service_info:
+        name: "{{ presto_deployo_service }}"
+      register: _presto_deployo_health_win
+      failed_when: >-
+        _presto_deployo_health_win.services | length == 0 or
+        _presto_deployo_health_win.services[0].state != 'started'

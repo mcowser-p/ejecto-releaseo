@@ -1,0 +1,28 @@
+---
+- name: Validate inputs
+  ansible.builtin.assert:
+    that:
+      - presto_deployo_repo_owner | length > 0
+      - presto_deployo_repo_name | length > 0
+      - presto_deployo_dest | length > 0
+      - presto_deployo_source in ['release', 'branch']
+      - presto_deployo_auth in ['auto', 'none', 'token', 'app', 'deploy_key']
+      - not (presto_deployo_auth == 'deploy_key' and presto_deployo_source == 'release')
+    fail_msg: >-
+      presto_deployo_repo_owner/_repo_name/_dest are required;
+      source must be release|branch; deploy_key auth only works with
+      source=branch (deploy keys speak git, not the REST API).
+
+- name: Resolve authentication
+  ansible.builtin.include_tasks: auth.yml
+
+- name: Deploy from a release
+  ansible.builtin.include_tasks: release.yml
+  when: presto_deployo_source == 'release'
+
+- name: Deploy from a branch
+  ansible.builtin.include_tasks: branch.yml
+  when: presto_deployo_source == 'branch'
+
+- name: Post-deploy service handling
+  ansible.builtin.include_tasks: post.yml

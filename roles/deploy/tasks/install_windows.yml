@@ -1,0 +1,35 @@
+---
+- name: "Download {{ _presto_item.asset_name }}"
+  ansible.windows.win_get_url:
+    url: >-
+      https://api.github.com/repos/{{ presto_deployo_repo_owner }}/{{ presto_deployo_repo_name
+      }}/releases/assets/{{ _presto_item.asset_id }}
+    headers: "{{ _presto_deployo_headers | combine({'Accept': 'application/octet-stream'}) }}"
+    dest: "{{ ansible_env.TEMP }}\\{{ _presto_item.asset_name }}"
+    force: true
+
+- name: "Extract {{ _presto_item.asset_name }}"
+  when: >-
+    _presto_item.unarchive | default(_presto_item.asset_name.endswith('.zip'))
+  community.windows.win_unzip:
+    src: "{{ ansible_env.TEMP }}\\{{ _presto_item.asset_name }}"
+    dest: "{{ _presto_item.dest | default(presto_deployo_dest) }}"
+  notify:
+    - Restart service (windows)
+
+- name: "Install {{ _presto_item.asset_name }}"
+  when: >-
+    not (_presto_item.unarchive | default(_presto_item.asset_name.endswith('.zip')))
+  ansible.windows.win_copy:
+    remote_src: true
+    src: "{{ ansible_env.TEMP }}\\{{ _presto_item.asset_name }}"
+    dest: >-
+      {{ _presto_item.dest | default(presto_deployo_dest) }}\{{
+        _presto_item.rename | default(_presto_item.asset_name) }}
+  notify:
+    - Restart service (windows)
+
+- name: "Clean up the download"
+  ansible.windows.win_file:
+    path: "{{ ansible_env.TEMP }}\\{{ _presto_item.asset_name }}"
+    state: absent

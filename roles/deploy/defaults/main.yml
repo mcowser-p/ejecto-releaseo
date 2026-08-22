@@ -1,0 +1,61 @@
+---
+# defaults for mcowser_p.presto_deployo.deploy
+# All variables carry the presto_deployo_ prefix (Galaxy var-naming standard).
+
+# --- What to deploy -------------------------------------------------------
+presto_deployo_repo_owner: ""            # required — GitHub org/user
+presto_deployo_repo_name: ""             # required — repository name
+
+# Source of the files:
+#   release — assets attached to a GitHub release
+#   branch  — the repository tree at a branch (or any git ref)
+presto_deployo_source: release
+
+# release mode: a release tag, or "latest" to resolve the newest release.
+# branch mode: the branch (or ref) to deploy.
+presto_deployo_version: latest
+
+# release mode — which assets to install. Each item:
+#   name:      exact asset filename OR a glob pattern (first match wins)
+#   dest:      directory on the target (defaults to presto_deployo_dest)
+#   rename:    optional new filename at the destination
+#   unarchive: true/false — extract instead of copy (auto-detected for
+#              .tar.gz/.tgz/.zip when omitted)
+presto_deployo_assets: []
+
+# branch mode — repo paths to deploy (empty list = whole tree). Each item:
+#   path: path inside the repository
+#   dest: directory on the target (defaults to presto_deployo_dest)
+presto_deployo_paths: []
+
+# --- Where to put it ------------------------------------------------------
+presto_deployo_dest: ""                  # required — target directory
+presto_deployo_owner: root               # Linux only
+presto_deployo_group: root               # Linux only
+presto_deployo_mode: "0755"              # Linux only
+
+# --- Authentication -------------------------------------------------------
+# auto — first of: presto_deployo_token, GitHub App creds, the runner's
+#        GITHUB_TOKEN environment variable, anonymous.
+# Explicit values: none | token | app | deploy_key
+#   deploy_key works with source=branch only (git protocol, not the REST API).
+presto_deployo_auth: auto
+
+presto_deployo_token: ""                 # PAT (or pass GITHUB_TOKEN via env)
+
+presto_deployo_app_id: ""                # GitHub App auth (all three required)
+presto_deployo_app_installation_id: ""
+presto_deployo_app_private_key: ""       # path to the PEM on the controller
+
+presto_deployo_deploy_key: ""            # path to the SSH private key on the
+                                         # controller (source=branch only)
+
+# --- After the files land -------------------------------------------------
+presto_deployo_service: ""               # systemd unit (Linux) / service name
+                                         # (Windows); restarted when files
+                                         # changed. Empty = no service.
+presto_deployo_command: ""               # command to run when files changed
+                                         # (after the restart). Empty = none.
+presto_deployo_health_check: true        # verify the service is running after
+                                         # a restart
+presto_deployo_health_check_delay: 10    # seconds to wait before checking

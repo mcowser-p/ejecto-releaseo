@@ -1,0 +1,19 @@
+---
+# Rolling deploy: one host at a time, stop on first failure.
+#   ansible-playbook -i inventory mcowser_p.presto_deployo.deploy \
+#     -e repo_owner=sudo-whodo -e repo_name=my-app \
+#     -e version=latest -e dest=/opt/my-app -e service=my-app
+- name: Presto deployo
+  hosts: all
+  serial: 1
+  roles:
+    - role: mcowser_p.presto_deployo.deploy
+      vars:
+        presto_deployo_repo_owner: "{{ repo_owner }}"
+        presto_deployo_repo_name: "{{ repo_name }}"
+        presto_deployo_version: "{{ version | default('latest') }}"
+        presto_deployo_source: "{{ source | default('release') }}"
+        presto_deployo_dest: "{{ dest }}"
+        presto_deployo_service: "{{ service | default('') }}"
+        presto_deployo_assets: "{{ assets | default([]) }}"
+        presto_deployo_paths: "{{ paths | default([]) }}"

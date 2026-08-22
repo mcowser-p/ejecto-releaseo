@@ -1,0 +1,50 @@
+---
+- name: "Download {{ _presto_item.asset_name }}"
+  become: true
+  ansible.builtin.get_url:
+    url: >-
+      https://api.github.com/repos/{{ presto_deployo_repo_owner }}/{{ presto_deployo_repo_name
+      }}/releases/assets/{{ _presto_item.asset_id }}
+    headers: "{{ _presto_deployo_headers | combine({'Accept': 'application/octet-stream'}) }}"
+    dest: "/tmp/{{ _presto_item.asset_name }}"
+    mode: "0600"
+    force: true
+
+- name: "Extract {{ _presto_item.asset_name }}"
+  become: true
+  when: >-
+    _presto_item.unarchive | default(
+      _presto_item.asset_name.endswith(('.tar.gz', '.tgz', '.zip')))
+  ansible.builtin.unarchive:
+    remote_src: true
+    src: "/tmp/{{ _presto_item.asset_name }}"
+    dest: "{{ _presto_item.dest | default(presto_deployo_dest) }}"
+    owner: "{{ presto_deployo_owner }}"
+    group: "{{ presto_deployo_group }}"
+  notify:
+    - Restart service (linux)
+  register: _presto_deployo_change
+  changed_when: _presto_deployo_change.changed
+
+- name: "Install {{ _presto_item.asset_name }}"
+  become: true
+  when: >-
+    not (_presto_item.unarchive | default(
+      _presto_item.asset_name.endswith(('.tar.gz', '.tgz', '.zip'))))
+  ansible.builtin.copy:
+    remote_src: true
+    src: "/tmp/{{ _presto_item.asset_name }}"
+    dest: >-
+      {{ _presto_item.dest | default(presto_deployo_dest) }}/{{
+        _presto_item.rename | default(_presto_item.asset_name) }}
+    owner: "{{ presto_deployo_owner }}"
+    group: "{{ presto_deployo_group }}"
+    mode: "{{ presto_deployo_mode }}"
+  notify:
+    - Restart service (linux)
+
+- name: "Clean up the download"
+  become: true
+  ansible.builtin.file:
+    path: "/tmp/{{ _presto_item.asset_name }}"
+    state: absent
