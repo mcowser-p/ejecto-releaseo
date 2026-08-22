@@ -6,18 +6,20 @@
 # keys speak git, not the REST API) and the selected paths are pushed to the
 # target with copy/win_copy — which works for both OS families.
 
+# Registered ONCE, unconditionally — a register on a skipped task would
+# overwrite this with {skipped: true} and lose the path.
+- name: Create a staging directory on the controller
+  delegate_to: localhost
+  become: false
+  check_mode: false
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: ejecto-releaseo-
+  register: _ejecto_releaseo_stage
+
 - name: Deploy via the archive API
   when: ejecto_releaseo_auth != 'deploy_key'
   block:
-    - name: Create a staging directory on the controller
-      delegate_to: localhost
-      become: false
-      check_mode: false
-      ansible.builtin.tempfile:
-        state: directory
-        prefix: ejecto-releaseo-
-      register: _ejecto_releaseo_stage
-
     - name: Download the repository archive
       delegate_to: localhost
       become: false
@@ -46,15 +48,6 @@
       ansible.builtin.assert:
         that: ejecto_releaseo_deploy_key | length > 0
         fail_msg: deploy_key auth needs ejecto_releaseo_deploy_key (path to the private key)
-
-    - name: Create a staging directory on the controller
-      delegate_to: localhost
-      become: false
-      check_mode: false
-      ansible.builtin.tempfile:
-        state: directory
-        prefix: ejecto-releaseo-
-      register: _ejecto_releaseo_stage
 
     - name: Shallow-clone over SSH with the deploy key
       delegate_to: localhost
