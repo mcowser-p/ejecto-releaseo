@@ -1,0 +1,43 @@
+---
+# Runs against the windows-latest runner itself over WinRM (see the
+# molecule workflow's windows job). Deploys a real release asset and a
+# branch tree, then exercises the restart + health-check path against the
+# Print Spooler service that ships with every runner.
+- name: Windows deploy test
+  hosts: windows
+  tasks:
+    - name: Deploy a release asset (jq.exe)
+      ansible.builtin.include_role:
+        name: ejecto_releaseo
+      vars:
+        ejecto_releaseo_repo_owner: jqlang
+        ejecto_releaseo_repo_name: jq
+        ejecto_releaseo_source: release
+        ejecto_releaseo_version: latest
+        ejecto_releaseo_assets:
+          - name: jq-windows-amd64.exe
+            rename: jq.exe
+        ejecto_releaseo_dest: 'C:\Tools'
+        ejecto_releaseo_service: Spooler
+        ejecto_releaseo_health_check_delay: 5
+
+    - name: Deploy a branch tree (Hello-World)
+      ansible.builtin.include_role:
+        name: ejecto_releaseo
+      vars:
+        ejecto_releaseo_repo_owner: octocat
+        ejecto_releaseo_repo_name: Hello-World
+        ejecto_releaseo_source: branch
+        ejecto_releaseo_version: master
+        ejecto_releaseo_dest: 'C:\Tools\hello'
+
+    - name: Verify jq runs
+      ansible.windows.win_command:
+        cmd: C:\Tools\jq.exe --version
+      register: jq_out
+      changed_when: false
+
+    - name: Assert deployments
+      ansible.builtin.assert:
+        that:
+          - jq_out.stdout is match('jq-')

@@ -1,0 +1,119 @@
+---
+# Molecule / integration tests — three gates keep this from running on
+# every push:
+#
+#   1. Path filter: only role, test, or workflow changes trigger it. Docs,
+#      README, and release-machinery churn never do.
+#   2. Label gate: the Windows job (slower, WinRM setup on a windows-latest
+#      runner) additionally requires the `test-windows` label on the PR.
+#   3. workflow_dispatch: both jobs can be forced manually; the Windows job
+#      via the run_windows input.
+#
+# Superseded runs on the same ref are cancelled (concurrency), so rapid
+# pushes don't stack runners.
+name: Molecule
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'roles/**'
+      - 'tests/**'
+      - 'requirements.yml'
+      - 'requirements.txt'
+      - '.github/workflows/molecule.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'roles/**'
+      - 'tests/**'
+  workflow_dispatch:
+    inputs:
+      run_windows:
+        description: Also run the Windows job
+        type: boolean
+        default: false
+
+concurrency:
+  group: molecule-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test tooling (pinned)
+        run: pip install -r requirements.txt
+
+      - name: Install collection dependencies
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Molecule test
+        run: molecule test
+        working-directory: roles/ejecto_releaseo
+        env:
+          # Picked up by the role's auto auth — also keeps the shared-runner
+          # anonymous API rate limit from flaking the tests.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
+
+  windows:
+    runs-on: windows-latest
+    # Gate: PR label `test-windows`, or a manual dispatch with run_windows.
+    if: >-
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'test-windows')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_windows)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure WinRM + test user on the runner
+        shell: pwsh
+        run: |
+          $pw = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 24 | ForEach-Object {[char]$_}) + "aA1!"
+          New-LocalUser -Name ansible-test -Password (ConvertTo-SecureString $pw -AsPlainText -Force) -PasswordNeverExpires | Out-Null
+          Add-LocalGroupMember -Group Administrators -Member ansible-test
+          "ANSIBLE_TEST_PW=$pw" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Enable-PSRemoting -Force -SkipNetworkProfileCheck
+          Set-Item WSMan:\localhost\Service\Auth\Basic -Value $true
+          Set-Item WSMan:\localhost\Service\AllowUnencrypted -Value $true
+          New-NetFirewallRule -DisplayName "WinRM-WSL" -Direction Inbound -LocalPort 5985 -Protocol TCP -Action Allow | Out-Null
+
+      - uses: Vampire/setup-wsl@v5
+        with:
+          distribution: Ubuntu-24.04
+          additional-packages: python3-pip python3-venv
+
+      - name: Install ansible in WSL
+        shell: wsl-bash {0}
+        run: |
+          python3 -m venv ~/venv
+          ~/venv/bin/pip install --quiet "ansible-core==2.21.3" pywinrm
+          ~/venv/bin/ansible-galaxy collection install -r requirements.yml
+
+      - name: Run the Windows deploy test
+        shell: wsl-bash {0}
+        run: |
+          HOST_IP=$(ip route show default | awk '{print $3}')
+          cat > inventory.ini <<INV
+          [windows]
+          winhost ansible_host=$HOST_IP
+          [windows:vars]
+          ansible_user=ansible-test
+          ansible_password=$ANSIBLE_TEST_PW
+          ansible_connection=winrm
+          ansible_port=5985
+          ansible_winrm_transport=basic
+          ansible_winrm_server_cert_validation=ignore
+          INV
+          ANSIBLE_ROLES_PATH=roles ~/venv/bin/ansible-playbook -i inventory.ini tests/windows/deploy.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WSLENV: ANSIBLE_TEST_PW/u:GITHUB_TOKEN/u

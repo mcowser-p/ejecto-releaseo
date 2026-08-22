@@ -1,0 +1,20 @@
+---
+driver:
+  name: docker
+platforms:
+  - name: alma9
+    image: almalinux:9
+    pre_build_image: true
+  - name: ubuntu2404
+    image: ubuntu:24.04
+    pre_build_image: true
+
+role_name_check: 1
+dependency:
+  name: galaxy
+  options:
+    requirements-file: ../../../../requirements.yml
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: ../../../../roles

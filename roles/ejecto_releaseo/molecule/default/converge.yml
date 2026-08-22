@@ -1,0 +1,32 @@
+---
+# Two real deployments against public GitHub content. The role picks up the
+# runner's GITHUB_TOKEN automatically (auth: auto), which also keeps the
+# shared-runner anonymous rate limit out of the picture.
+#
+# No systemd in these containers, so ejecto_releaseo_service stays empty —
+# the restart/health-check path is exercised by the Windows job instead.
+- name: Converge
+  hosts: all
+  tasks:
+    - name: Deploy a release asset (jq binary)
+      ansible.builtin.include_role:
+        name: ejecto_releaseo
+      vars:
+        ejecto_releaseo_repo_owner: jqlang
+        ejecto_releaseo_repo_name: jq
+        ejecto_releaseo_source: release
+        ejecto_releaseo_version: latest
+        ejecto_releaseo_assets:
+          - name: jq-linux-amd64
+            rename: jq
+        ejecto_releaseo_dest: /usr/local/bin
+
+    - name: Deploy a branch tree (Hello-World)
+      ansible.builtin.include_role:
+        name: ejecto_releaseo
+      vars:
+        ejecto_releaseo_repo_owner: octocat
+        ejecto_releaseo_repo_name: Hello-World
+        ejecto_releaseo_source: branch
+        ejecto_releaseo_version: master
+        ejecto_releaseo_dest: /opt/hello
