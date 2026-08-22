@@ -25,19 +25,22 @@
       {{ _ejecto_releaseo_release.json.tag_name }}
       ({{ _ejecto_releaseo_release.json.assets | length }} assets available)
 
+- name: Reset the download list
+  ansible.builtin.set_fact:
+    _ejecto_releaseo_downloads: []
+
 - name: Match requested assets against the release
   ansible.builtin.set_fact:
     _ejecto_releaseo_downloads: >-
-      {%- set out = [] -%}
-      {%- for want in ejecto_releaseo_assets -%}
-        {%- set hit = (_ejecto_releaseo_release.json.assets
-                       | selectattr('name', 'match', want.name | replace('*', '.*') ~ '$')
-                       | list | first) -%}
-        {%- if hit -%}
-          {{- out.append(want | combine({'asset_id': hit.id, 'asset_name': hit.name})) or '' -}}
-        {%- endif -%}
-      {%- endfor -%}
-      {{ out }}
+      {{ _ejecto_releaseo_downloads
+         + [item | combine({'asset_id': _ejecto_hit.id, 'asset_name': _ejecto_hit.name})] }}
+  vars:
+    _ejecto_hit: >-
+      {{ _ejecto_releaseo_release.json.assets
+         | selectattr('name', 'match', item.name | replace('*', '.*') ~ '$')
+         | list | first | default({}) }}
+  loop: "{{ ejecto_releaseo_assets }}"
+  when: _ejecto_hit.id is defined
 
 - name: Fail when a requested asset is missing from the release
   ansible.builtin.assert:

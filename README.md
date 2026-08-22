@@ -31,6 +31,24 @@ Windows targets work with the same vars — the role branches on
 `ansible_os_family` (`win_get_url`/`win_unzip`/`win_copy`, service restarts
 via `win_service`).
 
+### Windows connections: WinRM and SSH both work
+
+The role is connection-agnostic — `win_*` modules run over either
+transport. CI tests both.
+
+```ini
+# WinRM
+[windows:vars]
+ansible_connection=winrm
+ansible_port=5986
+ansible_winrm_transport=ntlm        # or kerberos/credssp/basic
+
+# OpenSSH (Windows Server 2019+, PowerShell as the default ssh shell)
+[windows:vars]
+ansible_connection=ssh
+ansible_shell_type=powershell
+```
+
 ### Deploy a branch instead of a release
 
 ```yaml
