@@ -20,6 +20,15 @@ module.exports = {
       },
     ],
     [
+      // Renders the GitHub release body from the conventional commits in the
+      // release. Without this plugin semantic-release emits an empty body,
+      // and CHANGELOG.md points at the Releases page for the real notes.
+      "@semantic-release/release-notes-generator",
+      {
+        preset: "conventionalcommits",
+      },
+    ],
+    [
       // Stamp the release version into galaxy.yml, build the collection
       // artifact, and publish it to Ansible Galaxy.
       "@semantic-release/exec",
