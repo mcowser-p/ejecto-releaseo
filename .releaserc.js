@@ -19,15 +19,17 @@ module.exports = {
         ],
       },
     ],
-    [
-      // Renders the GitHub release body from the conventional commits in the
-      // release. Without this plugin semantic-release emits an empty body,
-      // and CHANGELOG.md points at the Releases page for the real notes.
-      "@semantic-release/release-notes-generator",
-      {
-        preset: "conventionalcommits",
-      },
-    ],
+    // Renders the GitHub release body from the conventional commits in the
+    // release. Without this plugin semantic-release emits an empty body, and
+    // CHANGELOG.md points at the Releases page for the real notes.
+    //
+    // Deliberately unconfigured: the default preset is the
+    // conventional-changelog-angular that this plugin itself depends on, so
+    // the preset and the changelog writer can never drift apart. Pinning the
+    // conventionalcommits preset separately did drift — it requires
+    // conventional-changelog-writer@9+, the plugin ships writer@8, and the
+    // release died at generateNotes. It also matches commit-analyzer above.
+    "@semantic-release/release-notes-generator",
     [
       // Stamp the release version into galaxy.yml, build the collection
       // artifact, and publish it to Ansible Galaxy.
