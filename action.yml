@@ -18,6 +18,24 @@ inputs:
     description: Optional --limit pattern to narrow the play to some hosts.
     required: false
     default: ""
+  environment:
+    description: >-
+      Record a GitHub deployment against this environment, moving it through
+      in_progress and then success or failure.
+
+      Leave this empty when the calling job already declares `environment:`
+      (including via the bundled reusable workflow) — GitHub creates and
+      updates that deployment record itself, and setting this too would file a
+      second record for the same deploy. This exists for the case where the
+      action is used directly in a job with no environment of its own.
+
+      The calling job needs `permissions: deployments: write`.
+    required: false
+    default: ""
+  environment_url:
+    description: Optional URL recorded against the deployment.
+    required: false
+    default: ""
 
   # --- How to connect -----------------------------------------------------
   ssh_private_key:
@@ -182,7 +200,39 @@ runs:
 
         echo "ANSIBLE_HOST_KEY_CHECKING=$EJECTO_HOST_KEY_CHECKING" >> "$GITHUB_ENV"
 
+    - name: Open deployment record
+      id: deployment
+      if: inputs.environment != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        ENVIRONMENT_URL: ${{ inputs.environment_url }}
+        SOURCE_OWNER: ${{ inputs.repo_owner }}
+        SOURCE_NAME: ${{ inputs.repo_name }}
+        SOURCE_VERSION: ${{ inputs.version }}
+        DEST: ${{ inputs.dest }}
+        SHA: ${{ github.sha }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        # required_contexts must be an empty array or the deployment sits in
+        # "pending" waiting on commit statuses that will never arrive, so this
+        # goes through --input rather than -f string fields.
+        id=$(jq -n \
+          --arg ref "$SHA" --arg env "$ENVIRONMENT" \
+          --arg desc "$SOURCE_OWNER/$SOURCE_NAME $SOURCE_VERSION -> $DEST" \
+          '{ref: $ref, environment: $env, description: $desc,
+            auto_merge: false, required_contexts: [], transient_environment: false}' \
+          | gh api -X POST "repos/$REPO/deployments" --input - --jq .id)
+        echo "id=$id" >> "$GITHUB_OUTPUT"
+        gh api -X POST "repos/$REPO/deployments/$id/statuses" \
+          -f state=in_progress -f log_url="$RUN_URL" \
+          ${ENVIRONMENT_URL:+-f environment_url="$ENVIRONMENT_URL"} >/dev/null
+
     - name: Deploy
+      id: play
       shell: bash
       env:
         ANSIBLE_ROLES_PATH: ${{ github.action_path }}/roles
@@ -278,8 +328,39 @@ runs:
           limit_args=(--limit "$EJECTO_LIMIT")
         fi
 
+        # The exit code is captured rather than allowed to abort the step, so
+        # the deployment record can still be closed out below. The final step
+        # re-raises it, so a failed play still fails the action.
+        set +e
         ansible-playbook \
           -i "$EJECTO_INVENTORY" \
           "${limit_args[@]}" \
           "$RUNNER_TEMP/ejecto-play.yml" \
           -e "@$RUNNER_TEMP/ejecto-extra.json"
+        rc=$?
+        set -e
+        echo "rc=$rc" >> "$GITHUB_OUTPUT"
+
+    - name: Close deployment record
+      if: always() && inputs.environment != '' && steps.deployment.outputs.id != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+        RC: ${{ steps.play.outputs.rc }}
+        ENVIRONMENT_URL: ${{ inputs.environment_url }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        # An empty RC means the deploy step never produced one (cancelled, or
+        # it died before writing the output) — that is a failure, not a pass.
+        if [ "${RC:-1}" = "0" ]; then state=success; else state=failure; fi
+        gh api -X POST "repos/$REPO/deployments/$DEPLOYMENT_ID/statuses" \
+          -f state="$state" -f log_url="$RUN_URL" \
+          ${ENVIRONMENT_URL:+-f environment_url="$ENVIRONMENT_URL"} >/dev/null
+
+    - name: Fail if the deploy failed
+      if: steps.play.outputs.rc != '0'
+      shell: bash
+      run: exit "${{ steps.play.outputs.rc }}"

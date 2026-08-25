@@ -1,0 +1,169 @@
+---
+name: Deploy
+
+# Reusable wrapper around the action, called from your own repo:
+#
+#   jobs:
+#     deploy:
+#       uses: mcowser-p/ejecto-releaseo/.github/workflows/deploy.yml@v1
+#       with:
+#         environment: production
+#         repo_owner: mcowser-p
+#         repo_name: my-app
+#         dest: /opt/my-app
+#       secrets: inherit
+#
+# The point of this wrapper is the job-level `environment:` below, which a
+# composite action cannot declare for itself. It buys three things the action
+# alone cannot: environment-scoped secrets and variables (so one caller job
+# serves every inventory), environment protection rules (required reviewers,
+# wait timers, branch restrictions), and a deployment record per environment
+# with in_progress/success/failure — GitHub creates and updates that record
+# automatically, which is why nothing here posts one by hand.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: >-
+          GitHub environment to deploy to — one per inventory. Supplies the
+          secrets, the INVENTORY variable, and the protection rules.
+        required: true
+        type: string
+      environment_url:
+        description: Optional URL recorded against the deployment.
+        required: false
+        type: string
+        default: ""
+      inventory:
+        description: >-
+          Inventory path. Defaults to the environment's INVENTORY variable, so
+          the same caller job can serve every environment unchanged.
+        required: false
+        type: string
+        default: ""
+      limit:
+        required: false
+        type: string
+        default: ""
+      repo_owner:
+        required: true
+        type: string
+      repo_name:
+        required: true
+        type: string
+      source:
+        required: false
+        type: string
+        default: release
+      version:
+        required: false
+        type: string
+        default: latest
+      assets:
+        required: false
+        type: string
+        default: ""
+      paths:
+        required: false
+        type: string
+        default: ""
+      dest:
+        required: true
+        type: string
+      owner:
+        required: false
+        type: string
+        default: root
+      group:
+        required: false
+        type: string
+        default: root
+      mode:
+        required: false
+        type: string
+        default: "0755"
+      auth:
+        required: false
+        type: string
+        default: auto
+      force:
+        required: false
+        type: boolean
+        default: false
+      service:
+        required: false
+        type: string
+        default: ""
+      command:
+        required: false
+        type: string
+        default: ""
+      health_check:
+        required: false
+        type: boolean
+        default: true
+      health_check_delay:
+        required: false
+        type: number
+        default: 10
+      ssh_host_key_checking:
+        required: false
+        type: boolean
+        default: true
+      extra_vars:
+        required: false
+        type: string
+        default: ""
+      ansible_version:
+        required: false
+        type: string
+        default: "2.21.3"
+    secrets:
+      ssh_private_key:
+        required: false
+      ssh_known_hosts:
+        required: false
+      token:
+        description: Token for the source repo. Omit to use the ambient one.
+        required: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ inputs.environment_url }}
+    steps:
+      # Checks out the CALLER's repository — a reusable workflow runs in the
+      # caller's context — so the inventory path resolves against their tree.
+      - uses: actions/checkout@v5
+
+      # Pinned to @v1 so the action and this workflow move together on the
+      # floating major tag the release job maintains.
+      - uses: mcowser-p/ejecto-releaseo@v1
+        with:
+          inventory: ${{ inputs.inventory || vars.INVENTORY }}
+          limit: ${{ inputs.limit }}
+          ssh_private_key: ${{ secrets.ssh_private_key }}
+          ssh_known_hosts: ${{ secrets.ssh_known_hosts }}
+          ssh_host_key_checking: ${{ inputs.ssh_host_key_checking }}
+          repo_owner: ${{ inputs.repo_owner }}
+          repo_name: ${{ inputs.repo_name }}
+          source: ${{ inputs.source }}
+          version: ${{ inputs.version }}
+          assets: ${{ inputs.assets }}
+          paths: ${{ inputs.paths }}
+          dest: ${{ inputs.dest }}
+          owner: ${{ inputs.owner }}
+          group: ${{ inputs.group }}
+          mode: ${{ inputs.mode }}
+          auth: ${{ inputs.auth }}
+          token: ${{ secrets.token }}
+          force: ${{ inputs.force }}
+          service: ${{ inputs.service }}
+          command: ${{ inputs.command }}
+          health_check: ${{ inputs.health_check }}
+          health_check_delay: ${{ inputs.health_check_delay }}
+          extra_vars: ${{ inputs.extra_vars }}
+          ansible_version: ${{ inputs.ansible_version }}

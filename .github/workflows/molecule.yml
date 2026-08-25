@@ -143,3 +143,47 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WSLENV: ANSIBLE_TEST_PW/u:GITHUB_TOKEN/u
+
+  # Exercises the composite action end to end against a localhost inventory,
+  # deploying a real public release. Deployment tracking is deliberately not
+  # switched on here: it would file a record in the Deployments tab on every
+  # PR, and the tracking path is covered separately.
+  action-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Write a localhost inventory
+        run: |
+          printf 'localhost ansible_connection=local\n' > /tmp/smoke-inventory
+
+      - name: Run the composite action against itself
+        uses: ./
+        with:
+          inventory: /tmp/smoke-inventory
+          repo_owner: jqlang
+          repo_name: jq
+          version: jq-1.7.1
+          dest: /usr/local/bin
+          auth: none
+          assets: |
+            - name: jq-linux-amd64
+              rename: jq
+
+      - name: Assert the binary landed and runs
+        run: |
+          test -x /usr/local/bin/jq
+          /usr/local/bin/jq --version | grep -q '^jq-1.7.1$'
+
+      - name: Rerun is a no-op (version marker)
+        uses: ./
+        with:
+          inventory: /tmp/smoke-inventory
+          repo_owner: jqlang
+          repo_name: jq
+          version: jq-1.7.1
+          dest: /usr/local/bin
+          auth: none
+          assets: |
+            - name: jq-linux-amd64
+              rename: jq
