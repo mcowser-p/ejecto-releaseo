@@ -6,11 +6,15 @@
 - name: Ejecto releaseo
   hosts: all
   serial: 1
-  # The role never escalates on its own; grant become at the play level for
-  # Linux targets (Windows connections authenticate as an admin instead).
-  become: "{{ ansible_os_family != 'Windows' }}"
+  gather_facts: true
   roles:
+    # The role never escalates on its own; grant become for Linux targets
+    # (Windows connections authenticate as an admin instead). This sits on the
+    # role entry rather than the play: play-level become is templated before
+    # the setup task runs, so ansible_os_family would still be undefined and
+    # every host would fail on the first task.
     - role: mcowser_p.ejecto_releaseo.ejecto_releaseo
+      become: "{{ ansible_os_family != 'Windows' }}"
       vars:
         ejecto_releaseo_repo_owner: "{{ repo_owner }}"
         ejecto_releaseo_repo_name: "{{ repo_name }}"
