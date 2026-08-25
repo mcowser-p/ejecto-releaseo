@@ -177,6 +177,15 @@ runs:
       run: |
         set -euo pipefail
 
+        # No key means SSH is not this action's business: the inventory may be
+        # local, or Windows over WinRM, or SSH already set up by the caller.
+        # Bailing out on a missing known_hosts in those cases would break
+        # deploys that never open an SSH connection at all.
+        if [ -z "$EJECTO_SSH_KEY" ]; then
+          echo "No ssh_private_key supplied — leaving SSH configuration alone."
+          exit 0
+        fi
+
         if [ "$EJECTO_HOST_KEY_CHECKING" = "true" ] && [ -z "$EJECTO_KNOWN_HOSTS" ]; then
           echo "::error::ssh_known_hosts is empty while ssh_host_key_checking is true." \
                "Supply ssh-keyscan output for your targets, or set" \
@@ -184,12 +193,10 @@ runs:
           exit 1
         fi
 
-        if [ -n "$EJECTO_SSH_KEY" ]; then
-          key="$RUNNER_TEMP/ejecto-releaseo-key"
-          install -m 600 /dev/null "$key"
-          printf '%s\n' "$EJECTO_SSH_KEY" > "$key"
-          echo "ANSIBLE_PRIVATE_KEY_FILE=$key" >> "$GITHUB_ENV"
-        fi
+        key="$RUNNER_TEMP/ejecto-releaseo-key"
+        install -m 600 /dev/null "$key"
+        printf '%s\n' "$EJECTO_SSH_KEY" > "$key"
+        echo "ANSIBLE_PRIVATE_KEY_FILE=$key" >> "$GITHUB_ENV"
 
         if [ -n "$EJECTO_KNOWN_HOSTS" ]; then
           kh="$RUNNER_TEMP/ejecto-releaseo-known-hosts"
