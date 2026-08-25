@@ -102,7 +102,14 @@ inputs:
     required: false
     default: root
   mode:
-    description: Linux only — file mode.
+    description: Linux only — mode for files installed by a plain copy.
+    required: false
+    default: "0755"
+  dir_mode:
+    description: >-
+      Linux only — mode for the destination directory itself. Kept separate
+      from `mode` because a file mode is wrong for a directory: 0640 on a
+      directory makes it non-traversable.
     required: false
     default: "0755"
 
@@ -258,6 +265,7 @@ runs:
         EJECTO_OWNER: ${{ inputs.owner }}
         EJECTO_GROUP: ${{ inputs.group }}
         EJECTO_MODE: ${{ inputs.mode }}
+        EJECTO_DIR_MODE: ${{ inputs.dir_mode }}
         EJECTO_AUTH: ${{ inputs.auth }}
         EJECTO_TOKEN: ${{ inputs.token }}
         EJECTO_FORCE: ${{ inputs.force }}
@@ -296,6 +304,7 @@ runs:
             "ejecto_releaseo_owner": os.environ["EJECTO_OWNER"],
             "ejecto_releaseo_group": os.environ["EJECTO_GROUP"],
             "ejecto_releaseo_mode": os.environ["EJECTO_MODE"],
+            "ejecto_releaseo_dir_mode": os.environ["EJECTO_DIR_MODE"],
             "ejecto_releaseo_auth": os.environ["EJECTO_AUTH"],
             "ejecto_releaseo_token": os.environ["EJECTO_TOKEN"],
             "ejecto_releaseo_force": boolean("EJECTO_FORCE"),

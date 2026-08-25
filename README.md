@@ -161,7 +161,9 @@ environment at all and still want the deployment history, set the action's
 
 [`examples/`](examples/) has ready-to-run var files against real public
 repos — a single binary, a tarball plus service restart, `latest`
-resolution, and branch-mode config. Run one with:
+resolution, branch-mode config, and deploying under a dedicated service
+account with a private destination directory. That last one also documents
+which mode settings reach which files, which is not uniform. Run one with:
 
 ```bash
 ansible-playbook -i inventory mcowser_p.ejecto_releaseo.deploy \

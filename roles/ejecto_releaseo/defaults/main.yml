@@ -34,7 +34,12 @@ ejecto_releaseo_paths: []
 ejecto_releaseo_dest: ""                  # required — target directory
 ejecto_releaseo_owner: root               # Linux only
 ejecto_releaseo_group: root               # Linux only
-ejecto_releaseo_mode: "0755"              # Linux only
+ejecto_releaseo_mode: "0755"              # Linux only — files
+# Linux only — the destination directory itself. Separate from _mode because
+# a file mode is the wrong thing for a directory: 0640 on a directory makes
+# it non-traversable. Set this to 0750 to keep a deploy readable only by its
+# service account.
+ejecto_releaseo_dir_mode: "0755"
 
 # --- Authentication -------------------------------------------------------
 # auto — first of: ejecto_releaseo_token, GitHub App creds, the runner's

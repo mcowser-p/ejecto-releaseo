@@ -24,3 +24,7 @@
         ejecto_releaseo_service: "{{ service | default('') }}"
         ejecto_releaseo_assets: "{{ assets | default([]) }}"
         ejecto_releaseo_paths: "{{ paths | default([]) }}"
+        ejecto_releaseo_owner: "{{ owner | default('root') }}"
+        ejecto_releaseo_group: "{{ group | default('root') }}"
+        ejecto_releaseo_mode: "{{ mode | default('0755') }}"
+        ejecto_releaseo_dir_mode: "{{ dir_mode | default('0755') }}"

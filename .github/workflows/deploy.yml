@@ -83,6 +83,10 @@ on:
         required: false
         type: string
         default: "0755"
+      dir_mode:
+        required: false
+        type: string
+        default: "0755"
       auth:
         required: false
         type: string
@@ -158,6 +162,7 @@ jobs:
           owner: ${{ inputs.owner }}
           group: ${{ inputs.group }}
           mode: ${{ inputs.mode }}
+          dir_mode: ${{ inputs.dir_mode }}
           auth: ${{ inputs.auth }}
           token: ${{ secrets.token }}
           force: ${{ inputs.force }}

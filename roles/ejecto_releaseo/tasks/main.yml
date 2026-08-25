@@ -47,7 +47,7 @@
         state: directory
         owner: "{{ ejecto_releaseo_owner }}"
         group: "{{ ejecto_releaseo_group }}"
-        mode: "0755"
+        mode: "{{ ejecto_releaseo_dir_mode }}"
       when: ansible_os_family != 'Windows'
 
     - name: Ensure the destination directory exists (windows)

@@ -38,7 +38,8 @@ Linux targets that need it.
 | `ejecto_releaseo_dest` | `""` | **Required.** Target directory. |
 | `ejecto_releaseo_owner` | `root` | Linux only. |
 | `ejecto_releaseo_group` | `root` | Linux only. |
-| `ejecto_releaseo_mode` | `"0755"` | Linux only. |
+| `ejecto_releaseo_mode` | `"0755"` | Linux only. Mode for files installed by a plain copy — not applied to archive contents, which keep the modes from inside the archive. |
+| `ejecto_releaseo_dir_mode` | `"0755"` | Linux only. Mode for the destination directory. Separate from `mode` because a file mode is wrong for a directory — `0640` would make it non-traversable. |
 
 ### Authentication
 
@@ -60,6 +61,11 @@ Linux targets that need it.
 | `ejecto_releaseo_command` | `""` | Command run when files changed, after the restart. Empty disables. |
 | `ejecto_releaseo_health_check` | `true` | Verify the service is running after a restart. |
 | `ejecto_releaseo_health_check_delay` | `10` | Seconds to wait before checking. |
+
+`owner` and `group` apply to the destination directory and everything
+installed. The role does not create the account — it must already exist on
+the target. None of these apply on Windows, where installs go through
+`win_copy`/`win_file`.
 
 The role records what it deployed in `<dest>/.ejecto_releaseo.version`
 (release tag plus asset ids, or the branch commit sha) and skips every

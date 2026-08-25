@@ -1,0 +1,45 @@
+---
+# Ownership — deploy under a dedicated service account rather than root.
+#
+# The role sets owner/group on the destination directory and on everything it
+# installs, but it does NOT create the user or group: if `node_exporter` does
+# not exist on the target, the deploy fails with "chown failed". Create it
+# first, in your own play:
+#
+#   - hosts: metrics
+#     become: true
+#     pre_tasks:
+#       - name: Service account for node_exporter
+#         ansible.builtin.user:
+#           name: node_exporter
+#           system: true
+#           shell: /usr/sbin/nologin
+#           create_home: false
+#     roles:
+#       - role: mcowser_p.ejecto_releaseo.ejecto_releaseo
+#
+#   ansible-playbook -i inventory mcowser_p.ejecto_releaseo.deploy \
+#     -e @examples/node-exporter-service-user.yml
+repo_owner: prometheus
+repo_name: node_exporter
+version: latest
+source: release
+dest: /opt/node_exporter
+
+# The account that owns the deploy. Must already exist on the target.
+owner: node_exporter
+group: node_exporter
+
+# 0750 on the directory keeps the deploy readable only by its own service
+# account, rather than world-readable under the 0755 default.
+dir_mode: "0750"
+
+# `mode` applies to files installed by a plain copy. It does NOT apply to the
+# contents of an archive — unarchive preserves the modes inside the tarball,
+# which is what you want for a binary that ships executable.
+mode: "0640"
+
+assets:
+  - name: "node_exporter-*.linux-amd64.tar.gz"
+    unarchive: true
+service: node_exporter
