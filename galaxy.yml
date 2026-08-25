@@ -38,6 +38,7 @@ build_ignore:
   - .releaserc.js
   - .ansible-lint
   - .yamllint
+  - action.yml
   - package.json
   - package-lock.json
   - node_modules

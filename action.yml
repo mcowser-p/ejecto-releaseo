@@ -1,0 +1,285 @@
+---
+name: Ejecto! Releaseo!
+description: >-
+  Deploy files from a GitHub branch or release onto your Linux and Windows
+  hosts from CI — point at an inventory, and the role fetches the assets or
+  branch tree, lands them, and restarts a service or runs a command.
+author: mcowser-p
+branding:
+  icon: upload-cloud
+  color: purple
+
+inputs:
+  # --- Where to run -------------------------------------------------------
+  inventory:
+    description: Path (in your checkout) to the Ansible inventory to deploy to.
+    required: true
+  limit:
+    description: Optional --limit pattern to narrow the play to some hosts.
+    required: false
+    default: ""
+
+  # --- How to connect -----------------------------------------------------
+  ssh_private_key:
+    description: >-
+      SSH private key for the target hosts. Pass a secret, never a literal.
+      Written to a 0600 file under RUNNER_TEMP, which is scoped to this job
+      and outside the workspace.
+    required: false
+    default: ""
+  ssh_known_hosts:
+    description: >-
+      known_hosts entries for the targets (ssh-keyscan output). Required
+      unless ssh_host_key_checking is explicitly set to false.
+    required: false
+    default: ""
+  ssh_host_key_checking:
+    description: >-
+      Verify target host keys. Leave true and supply ssh_known_hosts. Setting
+      false accepts any host key and exposes the deploy to MITM — only for
+      throwaway or ephemeral targets.
+    required: false
+    default: "true"
+
+  # --- What to deploy -----------------------------------------------------
+  repo_owner:
+    description: GitHub org or user owning the repo to deploy from.
+    required: true
+  repo_name:
+    description: Repository to deploy from.
+    required: true
+  source:
+    description: "release (assets on a GitHub release) or branch (the repo tree)."
+    required: false
+    default: release
+  version:
+    description: >-
+      release mode — a tag, or latest for the newest release.
+      branch mode — the branch or ref.
+    required: false
+    default: latest
+  assets:
+    description: >-
+      release mode — YAML or JSON list of assets to install. Items take
+      name (exact filename or glob), dest, rename, unarchive.
+    required: false
+    default: ""
+  paths:
+    description: >-
+      branch mode — YAML or JSON list of repo paths to deploy. Items take
+      path and dest. Omit to deploy the whole tree.
+    required: false
+    default: ""
+
+  # --- Where it lands -----------------------------------------------------
+  dest:
+    description: Target directory on the hosts.
+    required: true
+  owner:
+    description: Linux only — file owner.
+    required: false
+    default: root
+  group:
+    description: Linux only — file group.
+    required: false
+    default: root
+  mode:
+    description: Linux only — file mode.
+    required: false
+    default: "0755"
+
+  # --- Authenticating to GitHub -------------------------------------------
+  auth:
+    description: "auto, none, token, app, or deploy_key."
+    required: false
+    default: auto
+  token:
+    description: >-
+      Token for the source repo. Leave empty to use the workflow's ambient
+      GITHUB_TOKEN, which covers same-repo and same-org sources. Supply a PAT
+      for cross-org private sources.
+    required: false
+    default: ""
+
+  # --- After the files land -----------------------------------------------
+  force:
+    description: Redeploy even when the version marker says hosts are current.
+    required: false
+    default: "false"
+  service:
+    description: Service restarted when files changed. Empty disables.
+    required: false
+    default: ""
+  command:
+    description: Command run when files changed. Empty disables.
+    required: false
+    default: ""
+  health_check:
+    description: Verify the service is running after a restart.
+    required: false
+    default: "true"
+  health_check_delay:
+    description: Seconds to wait before the health check.
+    required: false
+    default: "10"
+
+  # --- Escape hatches -----------------------------------------------------
+  extra_vars:
+    description: YAML or JSON dict of extra vars, merged last so it wins.
+    required: false
+    default: ""
+  ansible_version:
+    description: ansible-core version to install.
+    required: false
+    default: "2.21.3"
+
+runs:
+  using: composite
+  steps:
+    - name: Install ansible-core
+      shell: bash
+      run: pip install --quiet "ansible-core==${{ inputs.ansible_version }}"
+
+    - name: Install collection dependencies
+      shell: bash
+      run: >-
+        ansible-galaxy collection install --ignore-errors
+        community.general ansible.windows community.windows
+
+    # The key never reaches the command line or the log — it moves through the
+    # environment into a 0600 file under RUNNER_TEMP, which lives outside the
+    # workspace (so it cannot be picked up by an artifact upload) and is
+    # discarded with the job.
+    - name: Configure SSH
+      shell: bash
+      env:
+        EJECTO_SSH_KEY: ${{ inputs.ssh_private_key }}
+        EJECTO_KNOWN_HOSTS: ${{ inputs.ssh_known_hosts }}
+        EJECTO_HOST_KEY_CHECKING: ${{ inputs.ssh_host_key_checking }}
+      run: |
+        set -euo pipefail
+
+        if [ "$EJECTO_HOST_KEY_CHECKING" = "true" ] && [ -z "$EJECTO_KNOWN_HOSTS" ]; then
+          echo "::error::ssh_known_hosts is empty while ssh_host_key_checking is true." \
+               "Supply ssh-keyscan output for your targets, or set" \
+               "ssh_host_key_checking: \"false\" to accept any host key (MITM risk)."
+          exit 1
+        fi
+
+        if [ -n "$EJECTO_SSH_KEY" ]; then
+          key="$RUNNER_TEMP/ejecto-releaseo-key"
+          install -m 600 /dev/null "$key"
+          printf '%s\n' "$EJECTO_SSH_KEY" > "$key"
+          echo "ANSIBLE_PRIVATE_KEY_FILE=$key" >> "$GITHUB_ENV"
+        fi
+
+        if [ -n "$EJECTO_KNOWN_HOSTS" ]; then
+          kh="$RUNNER_TEMP/ejecto-releaseo-known-hosts"
+          install -m 600 /dev/null "$kh"
+          printf '%s\n' "$EJECTO_KNOWN_HOSTS" > "$kh"
+          echo "ANSIBLE_SSH_COMMON_ARGS=-o UserKnownHostsFile=$kh" >> "$GITHUB_ENV"
+        fi
+
+        echo "ANSIBLE_HOST_KEY_CHECKING=$EJECTO_HOST_KEY_CHECKING" >> "$GITHUB_ENV"
+
+    - name: Deploy
+      shell: bash
+      env:
+        ANSIBLE_ROLES_PATH: ${{ github.action_path }}/roles
+        ANSIBLE_FORCE_COLOR: "1"
+        # Picked up by the role's auth: auto when no explicit token is given.
+        GITHUB_TOKEN: ${{ inputs.token || github.token }}
+        EJECTO_INVENTORY: ${{ inputs.inventory }}
+        EJECTO_LIMIT: ${{ inputs.limit }}
+        EJECTO_REPO_OWNER: ${{ inputs.repo_owner }}
+        EJECTO_REPO_NAME: ${{ inputs.repo_name }}
+        EJECTO_SOURCE: ${{ inputs.source }}
+        EJECTO_VERSION: ${{ inputs.version }}
+        EJECTO_ASSETS: ${{ inputs.assets }}
+        EJECTO_PATHS: ${{ inputs.paths }}
+        EJECTO_DEST: ${{ inputs.dest }}
+        EJECTO_OWNER: ${{ inputs.owner }}
+        EJECTO_GROUP: ${{ inputs.group }}
+        EJECTO_MODE: ${{ inputs.mode }}
+        EJECTO_AUTH: ${{ inputs.auth }}
+        EJECTO_TOKEN: ${{ inputs.token }}
+        EJECTO_FORCE: ${{ inputs.force }}
+        EJECTO_SERVICE: ${{ inputs.service }}
+        EJECTO_COMMAND: ${{ inputs.command }}
+        EJECTO_HEALTH_CHECK: ${{ inputs.health_check }}
+        EJECTO_HEALTH_CHECK_DELAY: ${{ inputs.health_check_delay }}
+        EJECTO_EXTRA_VARS: ${{ inputs.extra_vars }}
+      run: |
+        set -euo pipefail
+
+        python3 - <<'PY'
+        import json, os, sys
+        import yaml
+
+        def structured(name, default):
+            raw = os.environ.get(name, "").strip()
+            if not raw:
+                return default
+            try:
+                return yaml.safe_load(raw)
+            except yaml.YAMLError as exc:
+                sys.exit(f"::error::{name.lower()} is not valid YAML or JSON: {exc}")
+
+        def boolean(name):
+            return os.environ.get(name, "").strip().lower() == "true"
+
+        extra = {
+            "ejecto_releaseo_repo_owner": os.environ["EJECTO_REPO_OWNER"],
+            "ejecto_releaseo_repo_name": os.environ["EJECTO_REPO_NAME"],
+            "ejecto_releaseo_source": os.environ["EJECTO_SOURCE"],
+            "ejecto_releaseo_version": os.environ["EJECTO_VERSION"],
+            "ejecto_releaseo_assets": structured("EJECTO_ASSETS", []),
+            "ejecto_releaseo_paths": structured("EJECTO_PATHS", []),
+            "ejecto_releaseo_dest": os.environ["EJECTO_DEST"],
+            "ejecto_releaseo_owner": os.environ["EJECTO_OWNER"],
+            "ejecto_releaseo_group": os.environ["EJECTO_GROUP"],
+            "ejecto_releaseo_mode": os.environ["EJECTO_MODE"],
+            "ejecto_releaseo_auth": os.environ["EJECTO_AUTH"],
+            "ejecto_releaseo_token": os.environ["EJECTO_TOKEN"],
+            "ejecto_releaseo_force": boolean("EJECTO_FORCE"),
+            "ejecto_releaseo_service": os.environ["EJECTO_SERVICE"],
+            "ejecto_releaseo_command": os.environ["EJECTO_COMMAND"],
+            "ejecto_releaseo_health_check": boolean("EJECTO_HEALTH_CHECK"),
+            "ejecto_releaseo_health_check_delay": int(
+                os.environ["EJECTO_HEALTH_CHECK_DELAY"]
+            ),
+        }
+
+        override = structured("EJECTO_EXTRA_VARS", {})
+        if override:
+            if not isinstance(override, dict):
+                sys.exit("::error::extra_vars must be a mapping, not a list or scalar.")
+            extra.update(override)
+
+        with open(os.environ["RUNNER_TEMP"] + "/ejecto-extra.json", "w") as fh:
+            json.dump(extra, fh)
+        PY
+
+        cat > "$RUNNER_TEMP/ejecto-play.yml" <<'PLAY'
+        - name: Ejecto releaseo
+          hosts: all
+          serial: 1
+          gather_facts: true
+          roles:
+            # become sits on the role entry, not the play: play-level become is
+            # templated before the setup task, so ansible_os_family would still
+            # be undefined and every host would fail on the first task.
+            - role: ejecto_releaseo
+              become: "{{ ansible_os_family != 'Windows' }}"
+        PLAY
+
+        limit_args=()
+        if [ -n "$EJECTO_LIMIT" ]; then
+          limit_args=(--limit "$EJECTO_LIMIT")
+        fi
+
+        ansible-playbook \
+          -i "$EJECTO_INVENTORY" \
+          "${limit_args[@]}" \
+          "$RUNNER_TEMP/ejecto-play.yml" \
+          -e "@$RUNNER_TEMP/ejecto-extra.json"

@@ -60,6 +60,58 @@ ejecto_releaseo_paths:                # omit to deploy the whole tree
     dest: /etc/my-app
 ```
 
+## As a GitHub Action
+
+Deploy to your hosts straight from a workflow. Point it at an inventory in
+your checkout; the role does the fetching and landing as usual.
+
+```yaml
+- uses: actions/checkout@v5
+
+- uses: mcowser-p/ejecto-releaseo@v1
+  with:
+    inventory: inventory/prod.ini
+    ssh_private_key: ${{ secrets.DEPLOY_KEY }}
+    ssh_known_hosts: ${{ secrets.KNOWN_HOSTS }}   # ssh-keyscan output
+    repo_owner: mcowser-p
+    repo_name: my-app
+    version: latest
+    assets: |
+      - name: "my-app-linux-*.tar.gz"
+        unarchive: true
+    dest: /opt/my-app
+    service: my-app
+```
+
+`assets`, `paths` and `extra_vars` take YAML (or JSON) exactly as the role
+vars do. Every role variable has a matching input; `extra_vars` is merged
+last for anything not exposed directly.
+
+The source repo needs no configuration when it is the same repo or same org
+— the workflow's ambient `GITHUB_TOKEN` is picked up automatically. Set the
+`token` input to a PAT only for cross-org private sources.
+
+**Host keys are verified by default.** Supply `ssh_known_hosts` with
+`ssh-keyscan` output for your targets. The Action fails with a clear message
+rather than silently trusting whatever answers, so if you genuinely have
+ephemeral targets, opt out explicitly with `ssh_host_key_checking: "false"`.
+The private key is written to a `0600` file under `RUNNER_TEMP` — outside
+the workspace, so an artifact upload cannot sweep it up — and goes away with
+the job.
+
+Narrow a run to part of the inventory with `limit: web`.
+
+## Example variable files
+
+[`examples/`](examples/) has ready-to-run var files against real public
+repos — a single binary, a tarball plus service restart, `latest`
+resolution, and branch-mode config. Run one with:
+
+```bash
+ansible-playbook -i inventory mcowser_p.ejecto_releaseo.deploy \
+  -e @examples/prometheus.yml
+```
+
 ## Authentication
 
 `ejecto_releaseo_auth: auto` (the default) picks the first available:
