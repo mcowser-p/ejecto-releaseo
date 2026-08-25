@@ -1,0 +1,41 @@
+---
+name: Dependabot auto-merge
+
+# pull_request_target runs in the base-branch context, which is what gives
+# this workflow a writable token — a plain pull_request trigger hands
+# Dependabot PRs a read-only one and the approval fails. That is only safe
+# because nothing here checks out or executes the PR's code; it just talks
+# to the API. Do not add a checkout step.
+on: pull_request_target
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr review --approve "$PR_URL"
+
+      # --auto queues the merge behind the branch ruleset: it lands only once
+      # the required checks are green, and never if they fail.
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+        run: |
+          echo "Update type: $UPDATE_TYPE"
+          gh pr merge --auto --squash "$PR_URL"
