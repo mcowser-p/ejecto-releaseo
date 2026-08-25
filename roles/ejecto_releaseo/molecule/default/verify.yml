@@ -5,18 +5,18 @@
     - name: Run the deployed jq
       ansible.builtin.command:
         cmd: /usr/local/bin/jq --version
-      register: jq_out
+      register: ejecto_releaseo_jq_out
       changed_when: false
 
     - name: Assert jq is executable and sane
       ansible.builtin.assert:
-        that: jq_out.stdout is match('jq-')
+        that: ejecto_releaseo_jq_out.stdout is match('jq-')
 
     - name: Stat the deployed branch tree
       ansible.builtin.stat:
         path: /opt/hello/README
-      register: hello_readme
+      register: ejecto_releaseo_hello_readme
 
     - name: Assert the branch tree landed
       ansible.builtin.assert:
-        that: hello_readme.stat.exists
+        that: ejecto_releaseo_hello_readme.stat.exists

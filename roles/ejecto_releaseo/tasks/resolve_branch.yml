@@ -15,7 +15,10 @@
   delay: 5
   until: _ejecto_releaseo_head.status == 200
 
-- name: Resolve the branch head via git ls-remote (deploy key)
+# noqa: command-instead-of-module — ansible.builtin.git clones a working
+# tree; there is no module that resolves a remote ref over SSH without
+# fetching, which is the whole point of this task.
+- name: Resolve the branch head via git ls-remote (deploy key)  # noqa: command-instead-of-module
   when: ejecto_releaseo_auth == 'deploy_key'
   delegate_to: localhost
   become: false

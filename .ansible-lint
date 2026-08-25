@@ -3,3 +3,7 @@ profile: production
 
 exclude_paths:
   - .github/
+  # `ansible-galaxy collection install -r requirements.yml` drops a copy
+  # of this very collection in here during CI, so every finding in the
+  # role was being reported twice — once real, once from the copy.
+  - .ansible/
