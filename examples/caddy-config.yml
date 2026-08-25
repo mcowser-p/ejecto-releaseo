@@ -1,0 +1,16 @@
+---
+# Branch mode — deploy configuration straight from a repository tree rather
+# than a release artifact. The trailing slash on `path` copies the directory's
+# CONTENTS into dest; without it the directory itself is copied.
+#
+#   ansible-playbook -i inventory mcowser_p.ejecto_releaseo.deploy \
+#     -e @examples/caddy-config.yml
+repo_owner: caddyserver
+repo_name: dist
+version: master
+source: branch
+dest: /etc/caddy
+paths:
+  - path: config/
+    dest: /etc/caddy
+service: caddy

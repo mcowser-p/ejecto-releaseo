@@ -1,0 +1,16 @@
+---
+# node_exporter — `latest` resolves the newest release at run time, so a
+# rerun only acts when upstream actually publishes something new. The version
+# marker under dest makes the no-op case cheap: no download at all.
+#
+#   ansible-playbook -i inventory mcowser_p.ejecto_releaseo.deploy \
+#     -e @examples/node-exporter.yml
+repo_owner: prometheus
+repo_name: node_exporter
+version: latest
+source: release
+dest: /opt/node_exporter
+assets:
+  - name: "node_exporter-*.linux-amd64.tar.gz"
+    unarchive: true
+service: node_exporter

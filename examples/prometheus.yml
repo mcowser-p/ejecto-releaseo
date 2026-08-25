@@ -1,0 +1,16 @@
+---
+# Prometheus — a versioned tarball unpacked into place, then the service
+# restarted. `unarchive` is auto-detected from the .tar.gz suffix, but it is
+# spelled out here because it is the interesting part.
+#
+#   ansible-playbook -i inventory mcowser_p.ejecto_releaseo.deploy \
+#     -e @examples/prometheus.yml
+repo_owner: prometheus
+repo_name: prometheus
+version: v3.6.0
+source: release
+dest: /opt/prometheus
+assets:
+  - name: "prometheus-*.linux-amd64.tar.gz"   # glob — the version is in the name
+    unarchive: true
+service: prometheus

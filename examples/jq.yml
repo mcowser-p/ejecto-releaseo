@@ -1,0 +1,14 @@
+---
+# jq — a single static binary from a release, renamed and made executable.
+# The simplest possible shape: one asset, no archive, no service.
+#
+#   ansible-playbook -i inventory mcowser_p.ejecto_releaseo.deploy \
+#     -e @examples/jq.yml
+repo_owner: jqlang
+repo_name: jq
+version: jq-1.7.1
+source: release
+dest: /usr/local/bin
+assets:
+  - name: jq-linux-amd64
+    rename: jq
