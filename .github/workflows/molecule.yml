@@ -93,7 +93,7 @@ jobs:
           Start-Service sshd
           New-NetFirewallRule -DisplayName "SSH-WSL" -Direction Inbound -LocalPort 22 -Protocol TCP -Action Allow | Out-Null
 
-      - uses: Vampire/setup-wsl@v5
+      - uses: Vampire/setup-wsl@v7
         with:
           distribution: Ubuntu-24.04
           additional-packages: python3-pip python3-venv sshpass
