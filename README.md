@@ -154,6 +154,32 @@ Conventional commits on `main` drive semantic-release: version stamped into
 `galaxy.yml`, tarball attached to the GitHub release, and published to
 Ansible Galaxy automatically.
 
+## Contributing
+
+Commit messages drive releases here — semantic-release reads them to pick
+the next version, and a commit **without a scope is ignored entirely**, so
+`feat: thing` silently costs you a release where `feat(role): thing` cuts
+one. CI checks every commit on a Linux runner, so the verdict is identical
+whatever you develop on.
+
+To get the same check locally before the commit lands — on Windows, macOS
+or Linux alike:
+
+```bash
+npm install
+```
+
+That installs the `commit-msg` hook. It runs through Git for Windows' own
+bundled `sh`, so there is no separate Windows path to keep working. To
+check a message by hand:
+
+```bash
+npx commitlint --edit .git/COMMIT_EDITMSG
+```
+
+Dependabot PRs are approved and merged automatically once the required
+checks pass, and never merged when a check fails.
+
 ## License
 
 Apache-2.0
