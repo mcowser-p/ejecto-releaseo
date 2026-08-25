@@ -1,0 +1,13 @@
+---
+name: Env probe
+
+on: workflow_dispatch
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    environment:
+      name: env-probe
+      url: https://example.invalid/probe
+    steps:
+      - run: echo "probing whether a job-level environment creates a deployment record"
