@@ -4,9 +4,15 @@
   "description": "Release toolchain for the mcowser_p.ejecto_releaseo collection (semantic-release)",
   "devDependencies": {
     "semantic-release": "25.0.9",
+    "@commitlint/cli": "21.2.2",
+    "@commitlint/config-conventional": "21.2.2",
     "@semantic-release/commit-analyzer": "13.0.1",
     "@semantic-release/exec": "7.1.0",
     "@semantic-release/github": "12.0.9",
-    "@semantic-release/release-notes-generator": "14.1.1"
+    "@semantic-release/release-notes-generator": "14.1.1",
+    "husky": "9.1.7"
+  },
+  "scripts": {
+    "prepare": "husky"
   }
 }
