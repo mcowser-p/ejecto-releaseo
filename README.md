@@ -178,7 +178,9 @@ npx commitlint --edit .git/COMMIT_EDITMSG
 ```
 
 Dependabot PRs are approved and merged automatically once the required
-checks pass, and never merged when a check fails.
+checks pass, and never merged when a check fails. Major version bumps are
+the exception: they are assigned to the repository owner for review instead
+of being merged, since those are the ones that actually break things.
 
 ## License
 
