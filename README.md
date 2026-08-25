@@ -101,6 +101,62 @@ the job.
 
 Narrow a run to part of the inventory with `limit: web`.
 
+### One GitHub environment per inventory
+
+Deploying to more than one place is where environments earn their keep. Make
+a GitHub environment per inventory — `staging`, `production` — and give each
+its own `INVENTORY` variable plus `DEPLOY_KEY` / `KNOWN_HOSTS` secrets. The
+bundled reusable workflow sets the job-level `environment:` that a composite
+action cannot declare for itself:
+
+```yaml
+jobs:
+  staging:
+    uses: mcowser-p/ejecto-releaseo/.github/workflows/deploy.yml@v1
+    with:
+      environment: staging          # picks the inventory *and* the secrets
+      repo_owner: mcowser-p
+      repo_name: my-app
+      dest: /opt/my-app
+      service: my-app
+    secrets: inherit
+
+  production:
+    needs: staging
+    uses: mcowser-p/ejecto-releaseo/.github/workflows/deploy.yml@v1
+    with:
+      environment: production
+      repo_owner: mcowser-p
+      repo_name: my-app
+      dest: /opt/my-app
+      service: my-app
+    secrets: inherit
+```
+
+Both jobs are identical apart from the environment name — the inventory comes
+from that environment's `INVENTORY` variable, so adding a third target means
+creating an environment, not editing the workflow.
+
+What you get for it:
+
+- **Scoped credentials.** The staging key is not readable from a production
+  run, and vice versa.
+- **Protection rules.** Put required reviewers on `production` and the deploy
+  waits for a human to approve it, with the run paused rather than racing
+  ahead. Wait timers and branch restrictions work the same way.
+- **Deployment history.** GitHub records a deployment per environment
+  automatically, moving through in-progress to success or failure, visible in
+  the repository's Deployments tab.
+
+Override the inventory for a one-off with the `inventory` input; it takes
+precedence over the environment variable.
+
+**Using the action directly instead?** A job that declares its own
+`environment:` already gets all of the above. If you are not using an
+environment at all and still want the deployment history, set the action's
+`environment` input — it files and closes the record itself. Do not set it
+*and* use a job-level environment, or every deploy is recorded twice.
+
 ## Example variable files
 
 [`examples/`](examples/) has ready-to-run var files against real public
